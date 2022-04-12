@@ -91,7 +91,10 @@ where
         max: Duration,
         rampdown: Duration,
     ) -> ChartBuilder<IdSet, PortSet> {
-        assert!(min < max);
+        assert!(
+            min < max,
+            "minimum duration: {min:?} must be smaller then maximum: {max:?}"
+        );
         self.rampdown = interval::Params { min, max, rampdown };
         self
     }

@@ -32,7 +32,6 @@ pub struct Interval {
 
 impl From<Params> for Interval {
     fn from(p: Params) -> Self {
-        dbg!(p.min, p.max);
         assert!(p.min < p.max);
         Interval {
             min: p.min,

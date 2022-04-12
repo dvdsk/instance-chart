@@ -10,10 +10,10 @@ use crate::chart::{handle_incoming, broadcast_periodically};
 pub async fn maintain(chart: Chart) {
     let f1 = tokio::spawn(handle_incoming(chart.clone()));
     let f2 = tokio::spawn(broadcast_periodically(chart, Duration::from_secs(10)));
-    let (_, _) = tokio::join!(f1, f2);
+    f1.await.unwrap();
+    f2.await.unwrap();
     unreachable!("maintain never returns")
 }
-
 
 #[tracing::instrument]
 pub async fn found_everyone(chart: Chart, full_size: u16) {
@@ -28,7 +28,6 @@ pub async fn found_everyone(chart: Chart, full_size: u16) {
     );
 }
 
-
 #[tracing::instrument]
 pub async fn found_majority(chart: Chart, full_size: u16) {
     assert!(full_size > 2, "minimal cluster size is 3");
@@ -39,4 +38,3 @@ pub async fn found_majority(chart: Chart, full_size: u16) {
     }
     info!("found majority of cluster, ({} nodes)", chart.size());
 }
-
