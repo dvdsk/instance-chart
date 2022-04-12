@@ -26,7 +26,6 @@ pub async fn maintain(chart: Chart) {
     let f2 = tokio::spawn(broadcast_periodically(chart, Duration::from_secs(10)));
     f1.await.accept_err_with(|e| e.is_cancelled()).unwrap();
     f2.await.accept_err_with(|e| e.is_cancelled()).unwrap();
-    unreachable!("maintain never returns")
 }
 
 #[tracing::instrument]
