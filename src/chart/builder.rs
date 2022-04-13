@@ -7,7 +7,7 @@ use std::time::Duration;
 use crate::Error;
 
 use super::{interval, Chart, Id};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tokio::net::UdpSocket;
 
 #[derive(Debug, Default)]
@@ -28,13 +28,9 @@ impl NotAssigned for No {}
 const DEFAULT_HEADER: u64 = 6_687_164_552_036_412_667;
 const DEFAULT_PORT: u16 = 8080;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Port(pub u16);
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Ports(pub Vec<u16>);
+pub type Port = u16;
 
-#[derive(Default)]
-pub struct ChartBuilder<IdSet, PortSet, PortsSet>
+pub struct ChartBuilder<const N: usize, IdSet, PortSet, PortsSet>
 where
     IdSet: ToAssign,
     PortSet: ToAssign,
@@ -44,21 +40,21 @@ where
     service_id: Option<Id>,
     discovery_port: u16,       // port the node is listening on for work
     service_port: Option<u16>, // port the node is listening on for work
-    service_ports: Vec<u16>,   // port the node is listening on for work
+    service_ports: [u16; N],   // port the node is listening on for work
     rampdown: interval::Params,
     id_set: PhantomData<IdSet>,
     port_set: PhantomData<PortSet>,
     ports_set: PhantomData<PortsSet>,
 }
 
-impl ChartBuilder<No, No, No> {
+impl<const N: usize> ChartBuilder<N, No, No, No> {
     #[must_use]
-    pub fn new() -> ChartBuilder<No, No, No> {
+    pub fn new() -> ChartBuilder<N, No, No, No> {
         ChartBuilder {
             header: DEFAULT_HEADER,
             service_id: None,
             discovery_port: DEFAULT_PORT,
-            service_ports: Vec::new(),
+            service_ports: [0u16; N],
             service_port: None,
             rampdown: interval::Params::default(),
             id_set: PhantomData {},
@@ -68,14 +64,14 @@ impl ChartBuilder<No, No, No> {
     }
 }
 
-impl<IdSet, PortSet, PortsSet> ChartBuilder<IdSet, PortSet, PortsSet>
+impl<const N: usize, IdSet, PortSet, PortsSet> ChartBuilder<N, IdSet, PortSet, PortsSet>
 where
     IdSet: ToAssign,
     PortSet: ToAssign,
     PortsSet: ToAssign,
 {
     #[must_use]
-    pub fn with_id(self, id: Id) -> ChartBuilder<Yes, PortSet, PortsSet> {
+    pub fn with_id(self, id: Id) -> ChartBuilder<N, Yes, PortSet, PortsSet> {
         ChartBuilder {
             header: self.header,
             discovery_port: self.discovery_port,
@@ -89,13 +85,13 @@ where
         }
     }
     #[must_use]
-    pub fn with_service_port(self, port: u16) -> ChartBuilder<IdSet, Yes, No> {
+    pub fn with_service_port(self, port: u16) -> ChartBuilder<N, IdSet, Yes, No> {
         ChartBuilder {
             header: self.header,
             discovery_port: self.discovery_port,
             service_id: self.service_id,
             service_port: Some(port),
-            service_ports: Vec::new(),
+            service_ports: self.service_ports,
             rampdown: self.rampdown,
             id_set: PhantomData {},
             port_set: PhantomData {},
@@ -103,7 +99,7 @@ where
         }
     }
     #[must_use]
-    pub fn with_service_ports(self, ports: Vec<u16>) -> ChartBuilder<IdSet, No, Yes> {
+    pub fn with_service_ports(self, ports: [u16; N]) -> ChartBuilder<N, IdSet, No, Yes> {
         ChartBuilder {
             header: self.header,
             discovery_port: self.discovery_port,
@@ -117,12 +113,12 @@ where
         }
     }
     #[must_use]
-    pub fn with_header(mut self, header: u64) -> ChartBuilder<IdSet, PortSet, PortsSet> {
+    pub fn with_header(mut self, header: u64) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.header = header;
         self
     }
     #[must_use]
-    pub fn with_discovery_port(mut self, port: u16) -> ChartBuilder<IdSet, PortSet, PortsSet> {
+    pub fn with_discovery_port(mut self, port: u16) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.discovery_port = port;
         self
     }
@@ -134,7 +130,7 @@ where
         min: Duration,
         max: Duration,
         rampdown: Duration,
-    ) -> ChartBuilder<IdSet, PortSet, PortsSet> {
+    ) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         assert!(
             min <= max,
             "minimum duration: {min:?} must be smaller or equal to the maximum: {max:?}"
@@ -144,11 +140,11 @@ where
     }
 }
 
-impl ChartBuilder<Yes, No, No> {
+impl ChartBuilder<1, Yes, No, No> {
     /// # Errors
     /// If a discovery port was set this errors if it could not be opened. If no port was
     /// set this errors if no port on the system could be opened.
-    pub fn custom_msg<Msg>(self, msg: Msg) -> Result<Chart<Msg>, Error>
+    pub fn custom_msg<Msg>(self, msg: Msg) -> Result<Chart<1, Msg>, Error>
     where
         Msg: Debug + Serialize + Clone,
     {
@@ -156,7 +152,7 @@ impl ChartBuilder<Yes, No, No> {
         Ok(Chart {
             header: self.header,
             service_id: self.service_id.unwrap(),
-            msg,
+            msg: [msg],
             sock: Arc::new(sock),
             map: Arc::new(dashmap::DashMap::new()),
             interval: self.rampdown.into(),
@@ -164,16 +160,16 @@ impl ChartBuilder<Yes, No, No> {
     }
 }
 
-impl ChartBuilder<Yes, Yes, No> {
+impl ChartBuilder<1, Yes, Yes, No> {
     /// # Errors
     /// If a discovery port was set this errors if it could not be opened. If no port was
     /// set this errors if no port on the system could be opened.
-    pub fn finish(self) -> Result<Chart<Port>, Error> {
+    pub fn finish(self) -> Result<Chart<1, Port>, Error> {
         let sock = open_socket(self.discovery_port)?;
         Ok(Chart {
             header: self.header,
             service_id: self.service_id.unwrap(),
-            msg: Port(self.service_port.unwrap()),
+            msg: [self.service_port.unwrap()],
             sock: Arc::new(sock),
             map: Arc::new(dashmap::DashMap::new()),
             interval: self.rampdown.into(),
@@ -181,16 +177,16 @@ impl ChartBuilder<Yes, Yes, No> {
     }
 }
 
-impl ChartBuilder<Yes, No, Yes> {
+impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     /// # Errors
     /// If a discovery port was set this errors if it could not be opened. If no port was
     /// set this errors if no port on the system could be opened.
-    pub fn finish(self) -> Result<Chart<Ports>, Error> {
+    pub fn finish(self) -> Result<Chart<N, Port>, Error> {
         let sock = open_socket(self.discovery_port)?;
         Ok(Chart {
             header: self.header,
             service_id: self.service_id.unwrap(),
-            msg: Ports(self.service_ports),
+            msg: self.service_ports,
             sock: Arc::new(sock),
             map: Arc::new(dashmap::DashMap::new()),
             interval: self.rampdown.into(),
@@ -241,7 +237,7 @@ mod compiles {
     async fn with_service_ports() {
         let chart = ChartBuilder::new()
             .with_id(0)
-            .with_service_ports(vec![1, 2])
+            .with_service_ports([1, 2])
             .finish()
             .unwrap();
         let _ = chart.our_service_ports();

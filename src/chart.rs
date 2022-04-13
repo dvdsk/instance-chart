@@ -5,8 +5,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use serde::Deserialize;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
+use serde_big_array::BigArray;
 use tokio::net::UdpSocket;
 use tracing::debug;
 
@@ -19,7 +21,6 @@ mod builder;
 pub use builder::ChartBuilder;
 
 use self::builder::Port;
-use self::builder::Ports;
 use self::interval::Until;
 
 #[allow(dead_code)]
@@ -29,30 +30,35 @@ pub struct Entry<Msg: Debug + Clone> {
     msg: Msg,
 }
 
-#[derive(Debug, Clone)]
-pub struct Chart<T: Debug + Clone + Serialize> {
-    header: u64,
-    service_id: Id,
-    msg: T,
-    sock: Arc<UdpSocket>,
-    interval: Interval,
-    map: Arc<dashmap::DashMap<Id, Entry<T>>>,
-}
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-struct DiscoveryMsg<T> {
+pub struct DiscoveryMsg<const N: usize, T> 
+where 
+    T: Serialize + DeserializeOwned
+{
     header: u64,
     id: Id,
-    msg: T,
+    #[serde(with = "BigArray")]
+    msg: [T; N],
 }
 
-impl<T: Serialize + Debug + Clone> Chart<T> {
+#[derive(Debug, Clone)]
+pub struct Chart<const N: usize, T: Debug + Clone + Serialize> {
+    header: u64,
+    service_id: Id,
+    msg: [T; N],
+    sock: Arc<UdpSocket>,
+    interval: Interval,
+    map: Arc<dashmap::DashMap<Id, Entry<[T;N]>>>,
+}
+
+impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
     #[tracing::instrument]
     fn process_buf<'de>(&self, buf: &'de [u8], addr: SocketAddr) -> bool
     where
-        T: Serialize + Deserialize<'de> + Debug,
+        T: Serialize + DeserializeOwned + Debug,
     {
-        let DiscoveryMsg::<T> { header, id, msg } = bincode::deserialize(buf).unwrap();
+        let DiscoveryMsg::<N, T> { header, id, msg } = bincode::deserialize(buf).unwrap();
         if header != self.header {
             return false;
         }
@@ -72,32 +78,39 @@ impl<T: Serialize + Debug + Clone> Chart<T> {
     }
 }
 
-impl Chart<Port> {
+impl Chart<1, Port> {
     #[must_use]
     pub fn our_service_port(&self) -> u16 {
-        self.msg.0
+        self.msg[0]
     }
 
     #[must_use]
     pub fn adresses(&self) -> Vec<SocketAddr> {
         self.map
             .iter()
-            .map(|m| (m.value().ip, m.value().msg.0))
+            .map(|m| (m.value().ip, m.value().msg[0]))
             .map(SocketAddr::from)
             .collect()
     }
 }
 
-impl Chart<Ports> {
+impl<const N: usize> Chart<N, Port> {
     #[must_use]
     pub fn our_service_ports(&self) -> &[u16] {
-        &self.msg.0
+        &self.msg
     }
 }
 
-impl<T: Debug + Clone + Serialize> Chart<T> {
+impl<T: Debug + Clone + Serialize> Chart<1, T> {
     #[must_use]
-    pub fn entries(&self) -> Vec<Entry<T>> {
+    pub fn our_msg(&self) -> &T {
+        &self.msg[0]
+    }
+}
+
+impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T> {
+    #[must_use]
+    pub fn entries(&self) -> Vec<Entry<[T;N]>> {
         self.map.iter().map(|m| m.value().clone()).collect()
     }
 
@@ -113,17 +126,12 @@ impl<T: Debug + Clone + Serialize> Chart<T> {
     }
 
     #[must_use]
-    pub fn our_msg(&self) -> &T {
-        &self.msg
-    }
-
-    #[must_use]
     pub fn discovery_port(&self) -> u16 {
         self.sock.local_addr().unwrap().port()
     }
 
     #[must_use]
-    fn discovery_msg(&self) -> DiscoveryMsg<T> {
+    fn discovery_msg(&self) -> DiscoveryMsg<N, T> {
         DiscoveryMsg {
             header: self.header,
             id: self.service_id,
@@ -145,7 +153,7 @@ impl<T: Debug + Clone + Serialize> Chart<T> {
 }
 
 #[tracing::instrument]
-pub async fn handle_incoming<T>(mut chart: Chart<T>)
+pub async fn handle_incoming<const N: usize, T>(mut chart: Chart<N,T>)
 where
     T: Debug + Clone + Serialize + DeserializeOwned,
 {
@@ -165,9 +173,9 @@ where
 }
 
 #[tracing::instrument]
-pub async fn broadcast_periodically<T>(mut chart: Chart<T>, period: Duration)
+pub async fn broadcast_periodically<const N:usize, T>(mut chart: Chart<N, T>, period: Duration)
 where
-    T: Debug + Serialize + Clone,
+    T: Debug + Serialize + DeserializeOwned + Clone,
 {
     loop {
         chart.interval.sleep_till_next().await;

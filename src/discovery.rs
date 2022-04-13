@@ -24,7 +24,7 @@ impl<T, E> AcceptErr<T, E> for Result<T, E> {
 }
 
 #[tracing::instrument]
-pub async fn maintain<'de, T>(chart: Chart<T>) 
+pub async fn maintain<'de, const N: usize, T>(chart: Chart<N, T>) 
 where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned + Sync + Send
 {
@@ -36,9 +36,9 @@ where
 }
 
 #[tracing::instrument]
-pub async fn found_everyone<T>(chart: &Chart<T>, full_size: u16) 
+pub async fn found_everyone<const N:usize, T>(chart: &Chart<N, T>, full_size: u16) 
 where
-    T: 'static + Debug + Clone + Serialize
+    T: 'static + Debug + Clone + Serialize + DeserializeOwned
 {
     assert!(full_size > 2, "minimal cluster size is 3");
 
@@ -52,9 +52,9 @@ where
 }
 
 #[tracing::instrument]
-pub async fn found_majority<T>(chart: &Chart<T>, full_size: u16) 
+pub async fn found_majority<const N:usize, T>(chart: &Chart<N,T>, full_size: u16) 
 where
-    T: 'static + Debug + Clone + Serialize
+    T: 'static + Debug + Clone + Serialize + DeserializeOwned
 {
     assert!(full_size > 2, "minimal cluster size is 3");
 
