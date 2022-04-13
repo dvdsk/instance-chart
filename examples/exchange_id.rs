@@ -36,7 +36,7 @@ async fn main() {
     let chart = ChartBuilder::new()
         .with_id(id)
         .with_service_port(port)
-        .build()
+        .finish()
         .unwrap();
 
     let maintain = discovery::maintain(chart.clone());

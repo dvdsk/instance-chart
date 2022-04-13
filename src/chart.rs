@@ -1,8 +1,11 @@
+use std::fmt::Debug;
+use std::net::IpAddr;
 use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use tokio::net::UdpSocket;
 use tracing::debug;
@@ -15,37 +18,48 @@ use crate::Id;
 mod builder;
 pub use builder::ChartBuilder;
 
+use self::builder::Port;
+use self::builder::Ports;
 use self::interval::Until;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct Chart {
+pub struct Entry<Msg: Debug + Clone> {
+    ip: IpAddr,
+    msg: Msg,
+}
+
+#[derive(Debug, Clone)]
+pub struct Chart<T: Debug + Clone + Serialize> {
     header: u64,
     service_id: Id,
-    service_port: u16,
+    msg: T,
     sock: Arc<UdpSocket>,
     interval: Interval,
-    map: Arc<dashmap::DashMap<Id, SocketAddr>>,
+    map: Arc<dashmap::DashMap<Id, Entry<T>>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-struct DiscoveryMsg {
+struct DiscoveryMsg<T> {
     header: u64,
     id: Id,
-    port: u16,
+    msg: T,
 }
 
-impl Chart {
+impl<T: Serialize + Debug + Clone> Chart<T> {
     #[tracing::instrument]
-    fn process_buf(&self, buf: &[u8], mut addr: SocketAddr) -> bool {
-        let DiscoveryMsg { header, port, id } = bincode::deserialize(buf).unwrap();
+    fn process_buf<'de>(&self, buf: &'de [u8], addr: SocketAddr) -> bool
+    where
+        T: Serialize + Deserialize<'de> + Debug,
+    {
+        let DiscoveryMsg::<T> { header, id, msg } = bincode::deserialize(buf).unwrap();
         if header != self.header {
             return false;
         }
         if id == self.service_id {
             return false;
         }
-        addr.set_port(port);
-        let old_key = self.map.insert(id, addr);
+        let old_key = self.map.insert(id, Entry { ip: addr.ip(), msg });
         if old_key.is_none() {
             debug!(
                 "added node: id: {id}, address: {addr:?}, n discoverd: ({})",
@@ -56,9 +70,35 @@ impl Chart {
             false
         }
     }
+}
+
+impl Chart<Port> {
+    #[must_use]
+    pub fn our_service_port(&self) -> u16 {
+        self.msg.0
+    }
+
     #[must_use]
     pub fn adresses(&self) -> Vec<SocketAddr> {
-        self.map.iter().map(|m| *m.value()).collect()
+        self.map
+            .iter()
+            .map(|m| (m.value().ip, m.value().msg.0))
+            .map(SocketAddr::from)
+            .collect()
+    }
+}
+
+impl Chart<Ports> {
+    #[must_use]
+    pub fn our_service_ports(&self) -> &[u16] {
+        &self.msg.0
+    }
+}
+
+impl<T: Debug + Clone + Serialize> Chart<T> {
+    #[must_use]
+    pub fn entries(&self) -> Vec<Entry<T>> {
+        self.map.iter().map(|m| m.value().clone()).collect()
     }
 
     /// members discoverd including self
@@ -73,16 +113,21 @@ impl Chart {
     }
 
     #[must_use]
+    pub fn our_msg(&self) -> &T {
+        &self.msg
+    }
+
+    #[must_use]
     pub fn discovery_port(&self) -> u16 {
         self.sock.local_addr().unwrap().port()
     }
 
     #[must_use]
-    fn discovery_msg(&self) -> DiscoveryMsg {
+    fn discovery_msg(&self) -> DiscoveryMsg<T> {
         DiscoveryMsg {
             header: self.header,
             id: self.service_id,
-            port: self.service_port,
+            msg: self.msg.clone(),
         }
     }
 
@@ -100,12 +145,15 @@ impl Chart {
 }
 
 #[tracing::instrument]
-pub async fn handle_incoming(mut chart: Chart) {
-    let mut buf = [0; 1024];
+pub async fn handle_incoming<T>(mut chart: Chart<T>)
+where
+    T: Debug + Clone + Serialize + DeserializeOwned,
+{
     loop {
-        let (len, addr) = chart.sock.recv_from(&mut buf).await.unwrap();
+        let mut buf = [0; 1024];
+        let (_len, addr) = chart.sock.recv_from(&mut buf).await.unwrap();
         trace!("got msg from: {addr:?}");
-        let was_uncharted = chart.process_buf(&buf[0..len], addr);
+        let was_uncharted = chart.process_buf(&buf, addr);
         if was_uncharted && !chart.broadcast_soon() {
             chart
                 .sock
@@ -117,7 +165,10 @@ pub async fn handle_incoming(mut chart: Chart) {
 }
 
 #[tracing::instrument]
-pub async fn broadcast_periodically(mut chart: Chart, period: Duration) {
+pub async fn broadcast_periodically<T>(mut chart: Chart<T>, period: Duration)
+where
+    T: Debug + Serialize + Clone,
+{
     loop {
         chart.interval.sleep_till_next().await;
         trace!("sending discovery msg");
@@ -129,13 +180,4 @@ pub async fn broadcast_periodically(mut chart: Chart, period: Duration) {
 async fn broadcast(sock: &Arc<UdpSocket>, msg: &[u8]) {
     let multiaddr = Ipv4Addr::from([224, 0, 0, 251]);
     let _len = sock.send_to(msg, (multiaddr, 8080)).await.unwrap();
-}
-
-#[tracing::instrument]
-async fn listen_for_response(chart: &Chart, cluster_majority: usize) {
-    let mut buf = [0; 1024];
-    while chart.size() < cluster_majority {
-        let (len, addr) = chart.sock.recv_from(&mut buf).await.unwrap();
-        chart.process_buf(&buf[0..len], addr);
-    }
 }
