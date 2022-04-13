@@ -56,23 +56,28 @@ impl Chart {
             false
         }
     }
+    #[must_use]
     pub fn adresses(&self) -> Vec<SocketAddr> {
         self.map.iter().map(|m| *m.value()).collect()
     }
 
     /// members discoverd including self
+    #[must_use]
     pub fn size(&self) -> usize {
         self.map.len() + 1
     }
 
+    #[must_use]
     pub fn our_id(&self) -> u64 {
         self.service_id
     }
 
+    #[must_use]
     pub fn discovery_port(&self) -> u16 {
         self.sock.local_addr().unwrap().port()
     }
 
+    #[must_use]
     fn discovery_msg(&self) -> DiscoveryMsg {
         DiscoveryMsg {
             header: self.header,
@@ -80,11 +85,14 @@ impl Chart {
             port: self.service_port,
         }
     }
+
+    #[must_use]
     fn discovery_buf(&self) -> Vec<u8> {
         let msg = self.discovery_msg();
         bincode::serialize(&msg).unwrap()
     }
 
+    #[must_use]
     fn broadcast_soon(&mut self) -> bool {
         let next = self.interval.next();
         next.until() < Duration::from_millis(100)

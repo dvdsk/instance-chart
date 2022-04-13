@@ -23,7 +23,7 @@ impl ToAssign for No {}
 impl Assigned for Yes {}
 impl NotAssigned for No {}
 
-const DEFAULT_HEADER: u64 = 66_87_164_55_203_64_126_67;
+const DEFAULT_HEADER: u64 = 6_687_164_552_036_412_667;
 const DEFAULT_PORT: u16 = 8080;
 
 #[derive(Default)]
@@ -42,11 +42,13 @@ where
 }
 
 impl ChartBuilder<No, No> {
+    #[must_use]
     pub fn new() -> ChartBuilder<No, No> {
-        let mut builder = ChartBuilder::default();
-        builder.header = DEFAULT_HEADER;
-        builder.discovery_port = DEFAULT_PORT;
-        builder
+        ChartBuilder {
+            header: DEFAULT_HEADER,
+            discovery_port: DEFAULT_PORT,
+            .. ChartBuilder::default()
+        }
     }
 }
 
@@ -55,6 +57,7 @@ where
     IdSet: ToAssign,
     PortSet: ToAssign,
 {
+    #[must_use]
     pub fn with_id(self, id: Id) -> ChartBuilder<Yes, PortSet> {
         ChartBuilder {
             header: self.header,
@@ -66,6 +69,7 @@ where
             port_set: PhantomData {},
         }
     }
+    #[must_use]
     pub fn with_service_port(self, service_port: u16) -> ChartBuilder<IdSet, Yes> {
         ChartBuilder {
             header: self.header,
@@ -77,14 +81,19 @@ where
             port_set: PhantomData {},
         }
     }
+    #[must_use]
     pub fn with_header(mut self, header: u64) -> ChartBuilder<IdSet, PortSet> {
         self.header = header;
         self
     }
+    #[must_use]
     pub fn with_discovery_port(mut self, port: u16) -> ChartBuilder<IdSet, PortSet> {
         self.discovery_port = port;
         self
     }
+    /// # Panics
+    /// panics if min is larger then max
+    #[must_use]
     pub fn with_rampdown(
         mut self,
         min: Duration,
@@ -92,21 +101,38 @@ where
         rampdown: Duration,
     ) -> ChartBuilder<IdSet, PortSet> {
         assert!(
-            min < max,
-            "minimum duration: {min:?} must be smaller then maximum: {max:?}"
+            min <= max,
+            "minimum duration: {min:?} must be smaller or equal to the maximum: {max:?}"
         );
-        self.rampdown = interval::Params { min, max, rampdown };
+        self.rampdown = interval::Params { rampdown, min, max };
         self
+    }
+}
+
+impl ChartBuilder<Yes, Yes> {
+    /// # Errors
+    /// If a discovery port was set this errors if it could not be opened. If no port was 
+    /// set this errors if no port on the system could be opened.
+    pub fn build(self) -> Result<Chart, Error> {
+        let sock = open_socket(self.discovery_port)?;
+        Ok(Chart {
+            header: self.header,
+            service_id: self.service_id.unwrap(),
+            service_port: self.service_port.unwrap(),
+            sock: Arc::new(sock),
+            map: Arc::new(dashmap::DashMap::new()),
+            interval: self.rampdown.into(),
+        })
     }
 }
 
 fn open_socket(port: u16) -> Result<UdpSocket, Error> {
     assert_ne!(port, 0);
 
-    use Error::*;
     let interface = Ipv4Addr::from([0, 0, 0, 0]);
     let multiaddr = Ipv4Addr::from([224, 0, 0, 251]);
 
+    use Error::*;
     use socket2::{Domain, SockAddr, Socket, Type};
     let sock = Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(Construct)?;
     sock.set_reuse_port(true).map_err(SetReuse)?; // allow binding to a port already in use
@@ -123,18 +149,4 @@ fn open_socket(port: u16) -> Result<UdpSocket, Error> {
     sock.set_nonblocking(true).map_err(SetNonBlocking)?;
     let sock = UdpSocket::from_std(sock).map_err(ToTokio)?;
     Ok(sock)
-}
-
-impl ChartBuilder<Yes, Yes> {
-    pub fn build(self) -> Result<Chart, Error> {
-        let sock = open_socket(self.discovery_port)?;
-        Ok(Chart {
-            header: self.header,
-            service_id: self.service_id.unwrap(),
-            service_port: self.service_port.unwrap(),
-            sock: Arc::new(sock),
-            map: Arc::new(dashmap::DashMap::new()),
-            interval: self.rampdown.into(),
-        })
-    }
 }

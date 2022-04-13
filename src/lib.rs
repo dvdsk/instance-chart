@@ -1,6 +1,6 @@
 //! Simple lightweight local service discovery for testing
 //!
-//! This crate provides a lightweight alternative to mDNS. It discovers other instances on the
+//! This crate provides a lightweight alternative to `mDNS`. It discovers other instances on the
 //! same machine or network. You provide an Id and Port you wish to be contacted on. Multicast-discovery
 //! then gives you a live updating chart of all the discovered Ids, Ports pairs and their adress.
 //!
