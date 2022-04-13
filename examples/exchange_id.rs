@@ -42,6 +42,6 @@ async fn main() {
     let maintain = discovery::maintain(chart.clone());
     let _ = tokio::spawn(maintain);
 
-    discovery::found_everyone(chart.clone(), cluster_size).await;
+    discovery::found_everyone(&chart, cluster_size).await;
     info!("discovery complete: {chart:?}");
 }

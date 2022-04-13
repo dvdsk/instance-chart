@@ -29,7 +29,7 @@ pub async fn maintain(chart: Chart) {
 }
 
 #[tracing::instrument]
-pub async fn found_everyone(chart: Chart, full_size: u16) {
+pub async fn found_everyone(chart: &Chart, full_size: u16) {
     assert!(full_size > 2, "minimal cluster size is 3");
 
     while chart.size() < full_size.into() {
@@ -42,7 +42,7 @@ pub async fn found_everyone(chart: Chart, full_size: u16) {
 }
 
 #[tracing::instrument]
-pub async fn found_majority(chart: Chart, full_size: u16) {
+pub async fn found_majority(chart: &Chart, full_size: u16) {
     assert!(full_size > 2, "minimal cluster size is 3");
 
     let cluster_majority = (full_size as f32 * 0.5).ceil() as usize;
