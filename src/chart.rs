@@ -23,14 +23,6 @@ pub use builder::ChartBuilder;
 use self::builder::Port;
 use self::interval::Until;
 
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct Entry<Msg: Debug + Clone> {
-    ip: IpAddr,
-    msg: Msg,
-}
-
-
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct DiscoveryMsg<const N: usize, T> 
 where 
@@ -40,6 +32,12 @@ where
     id: Id,
     #[serde(with = "BigArray")]
     msg: [T; N],
+}
+
+#[derive(Debug, Clone)]
+pub struct Entry<Msg: Debug + Clone> {
+    ip: IpAddr,
+    msg: Msg,
 }
 
 #[derive(Debug, Clone)]
