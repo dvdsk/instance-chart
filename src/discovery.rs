@@ -1,5 +1,8 @@
+use std::fmt::Debug;
 use std::time::Duration;
 
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use tokio::time::sleep;
 use tracing::info;
 
@@ -21,7 +24,10 @@ impl<T, E> AcceptErr<T, E> for Result<T, E> {
 }
 
 #[tracing::instrument]
-pub async fn maintain(chart: Chart) {
+pub async fn maintain<'de, const N: usize, T>(chart: Chart<N, T>) 
+where
+    T: 'static + Debug + Clone + Serialize + DeserializeOwned + Sync + Send
+{
     use tokio::task::JoinError;
     let f1 = tokio::spawn(handle_incoming(chart.clone()));
     let f2 = tokio::spawn(broadcast_periodically(chart, Duration::from_secs(10)));
@@ -30,7 +36,10 @@ pub async fn maintain(chart: Chart) {
 }
 
 #[tracing::instrument]
-pub async fn found_everyone(chart: &Chart, full_size: u16) {
+pub async fn found_everyone<const N:usize, T>(chart: &Chart<N, T>, full_size: u16) 
+where
+    T: 'static + Debug + Clone + Serialize + DeserializeOwned
+{
     assert!(full_size > 2, "minimal cluster size is 3");
 
     while chart.size() < full_size.into() {
@@ -43,7 +52,10 @@ pub async fn found_everyone(chart: &Chart, full_size: u16) {
 }
 
 #[tracing::instrument]
-pub async fn found_majority(chart: &Chart, full_size: u16) {
+pub async fn found_majority<const N:usize, T>(chart: &Chart<N,T>, full_size: u16) 
+where
+    T: 'static + Debug + Clone + Serialize + DeserializeOwned
+{
     assert!(full_size > 2, "minimal cluster size is 3");
 
     let cluster_majority = (f32::from(full_size) * 0.5).ceil() as usize;

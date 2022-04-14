@@ -23,7 +23,7 @@
 //!   let chart = ChartBuilder::new()
 //!       .with_id(1)
 //!       .with_service_port(8042)
-//!       .build()
+//!       .finish()
 //!       .unwrap();
 //!   let maintain = discovery::maintain(chart.clone());
 //!   let _ = tokio::spawn(maintain); // maintain task will run forever
