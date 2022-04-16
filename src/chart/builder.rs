@@ -32,7 +32,8 @@ pub type Port = u16;
 
 /// The ChartBuilder, used to construct a Chart using a builder-like pattern. You must set
 /// id. One of: service port, service ports then build with `finish()` or set a custom msg
-/// and build using `custom_msg()`
+/// and build using `custom_msg()`. Take a look at the examples of [custom_msg](ChartBuilder::custom_msg()) 
+/// or [finish](ChartBuilder::finish()).
 pub struct ChartBuilder<const N: usize, IdSet, PortSet, PortsSet>
 where
     IdSet: ToAssign,
@@ -74,8 +75,7 @@ where
     PortSet: ToAssign,
     PortsSet: ToAssign,
 {
-    /// port this node accepts service traffic. The port will appear to the other
-    /// nodes in the Chart.
+    /// id for this node, this will be the key in the chart for this node
     #[must_use]
     pub fn with_id(self, id: Id) -> ChartBuilder<N, Yes, PortSet, PortsSet> {
         ChartBuilder {
@@ -122,20 +122,20 @@ where
             ports_set: PhantomData {},
         }
     }
-    /// [optional] set custom header number. The header is used to identify your discovery from others
+    /// _\[optional\]_ set custom header number. The header is used to identify your discovery from others
     /// if your not testing you should use this to set a [random](https://www.random.org) number.
     #[must_use]
     pub fn with_header(mut self, header: u64) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.header = header;
         self
     }
-    /// [optional] set custom port for discovery. This port needs to be free and unused on all nodes.
+    /// _\[optional\]_ set custom port for discovery. This port needs to be free and unused on all nodes.
     #[must_use]
     pub fn with_discovery_port(mut self, port: u16) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.discovery_port = port;
         self
     }
-    /// [optional] duration between discovery broadcasts, decreases linearly from `max` to `min`
+    /// _\[optional\]_ duration between discovery broadcasts, decreases linearly from `max` to `min`
     /// over `rampdown` period.
     /// # Panics
     /// panics if min is larger then max
@@ -156,6 +156,35 @@ where
 }
 
 impl ChartBuilder<1, Yes, No, No> {
+    /// build a chart with a custom msg instead of a service port. The message can 
+    /// be any struct that implements `Debug`, `Clone`, `serde::Serialize` and `serde::Deserialize`
+    ///
+    /// example:
+    /// ```rust
+    ///use multicast_discovery::{discovery, ChartBuilder};
+    ///use serde::{Serialize, Deserialize};
+    ///use std::time::Duration;
+    ///
+    ///#[derive(Debug, Clone, Serialize, Deserialize)]
+    ///struct Msg(u32);
+    ///
+    ///#[tokio::main]
+    ///async fn main() {
+    ///   let msg = Msg(0);
+    ///   let chart = ChartBuilder::new()
+    ///       .with_id(1)
+    ///       .with_discovery_port(8888)
+    ///       .with_header(17249479) // optional
+    ///       .with_rampdown( // optional
+    ///           Duration::from_millis(10), 
+    ///           Duration::from_secs(10),
+    ///           Duration::from_secs(60)) 
+    ///       .custom_msg(msg)
+    ///       .unwrap();
+    ///   let maintain = discovery::maintain(chart.clone());
+    ///   let _ = tokio::spawn(maintain); // maintain task will run forever
+    /// }
+    /// ```
     /// # Errors
     /// If a discovery port was set this errors if it could not be opened. If no port was
     /// set this errors if no port on the system could be opened.
@@ -176,17 +205,19 @@ impl ChartBuilder<1, Yes, No, No> {
 }
 
 impl ChartBuilder<1, Yes, Yes, No> {
-    /// build a chart that has one or more service ports set
+    /// build a chart that has a single service ports set
     ///
     /// example:
     /// ```rust
     ///use multicast_discovery::{discovery, ChartBuilder};
+    ///use std::time::Duration;
     ///
     ///#[tokio::main]
     ///async fn main() {
     ///   let chart = ChartBuilder::new()
     ///       .with_id(1)
     ///       .with_service_port(8042)
+    ///       .with_discovery_port(8888)
     ///       .with_header(17249479) // optional
     ///       .with_rampdown( // optional
     ///           Duration::from_millis(10), 
@@ -215,6 +246,30 @@ impl ChartBuilder<1, Yes, Yes, No> {
 }
 
 impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
+    /// build a chart that has a multiple service ports set
+    ///
+    /// example:
+    /// ```rust
+    ///use multicast_discovery::{discovery, ChartBuilder};
+    ///use std::time::Duration;
+    ///
+    ///#[tokio::main]
+    ///async fn main() {
+    ///   let chart = ChartBuilder::new()
+    ///       .with_id(1)
+    ///       .with_service_ports([8042,9042])
+    ///       .with_discovery_port(8888)
+    ///       .with_header(17249479) // optional
+    ///       .with_rampdown( // optional
+    ///           Duration::from_millis(10), 
+    ///           Duration::from_secs(10),
+    ///           Duration::from_secs(60)) 
+    ///       .finish()
+    ///       .unwrap();
+    ///   let maintain = discovery::maintain(chart.clone());
+    ///   let _ = tokio::spawn(maintain); // maintain task will run forever
+    /// }
+    /// ```
     /// # Errors
     /// If a discovery port was set this errors if it could not be opened. If no port was
     /// set this errors if no port on the system could be opened.
