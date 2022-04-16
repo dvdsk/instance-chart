@@ -23,6 +23,8 @@ impl<T, E> AcceptErr<T, E> for Result<T, E> {
     }
 }
 
+/// This drives the chart discovery. You can drop the future but the chart
+/// will no longer be updated.
 #[tracing::instrument]
 pub async fn maintain<'de, const N: usize, T>(chart: Chart<N, T>) 
 where
@@ -35,6 +37,7 @@ where
     f2.await.accept_err_with(JoinError::is_cancelled).unwrap();
 }
 
+/// Block until `full_size` nodes have been found.
 #[tracing::instrument]
 pub async fn found_everyone<const N:usize, T>(chart: &Chart<N, T>, full_size: u16) 
 where
@@ -51,6 +54,8 @@ where
     );
 }
 
+/// Block until a majority of nodes have been found. Usefull when implementing vote based
+/// consensus such as Raft.
 #[tracing::instrument]
 pub async fn found_majority<const N:usize, T>(chart: &Chart<N,T>, full_size: u16) 
 where

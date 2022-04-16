@@ -30,6 +30,9 @@ const DEFAULT_PORT: u16 = 8080;
 
 pub type Port = u16;
 
+/// The ChartBuilder, used to construct a Chart using a builder-like pattern. You must set
+/// id. One of: service port, service ports then build with `finish()` or set a custom msg
+/// and build using `custom_msg()`
 pub struct ChartBuilder<const N: usize, IdSet, PortSet, PortsSet>
 where
     IdSet: ToAssign,
@@ -38,9 +41,9 @@ where
 {
     header: u64,
     service_id: Option<Id>,
-    discovery_port: u16,       // port the node is listening on for work
-    service_port: Option<u16>, // port the node is listening on for work
-    service_ports: [u16; N],   // port the node is listening on for work
+    discovery_port: u16,
+    service_port: Option<u16>,
+    service_ports: [u16; N],
     rampdown: interval::Params,
     id_set: PhantomData<IdSet>,
     port_set: PhantomData<PortSet>,
@@ -48,6 +51,7 @@ where
 }
 
 impl<const N: usize> ChartBuilder<N, No, No, No> {
+    /// create a chat builder
     #[must_use]
     pub fn new() -> ChartBuilder<N, No, No, No> {
         ChartBuilder {
@@ -70,6 +74,8 @@ where
     PortSet: ToAssign,
     PortsSet: ToAssign,
 {
+    /// port this node accepts service traffic. The port will appear to the other
+    /// nodes in the Chart.
     #[must_use]
     pub fn with_id(self, id: Id) -> ChartBuilder<N, Yes, PortSet, PortsSet> {
         ChartBuilder {
@@ -84,6 +90,8 @@ where
             ports_set: PhantomData {},
         }
     }
+    /// port this node accepts service traffic. The port will appear to the other
+    /// nodes in the Chart.
     #[must_use]
     pub fn with_service_port(self, port: u16) -> ChartBuilder<N, IdSet, Yes, No> {
         ChartBuilder {
@@ -98,6 +106,8 @@ where
             ports_set: PhantomData {},
         }
     }
+    /// ports this node accepts service traffic. The port will appear to the other
+    /// nodes in the Chart.
     #[must_use]
     pub fn with_service_ports(self, ports: [u16; N]) -> ChartBuilder<N, IdSet, No, Yes> {
         ChartBuilder {
@@ -112,16 +122,21 @@ where
             ports_set: PhantomData {},
         }
     }
+    /// [optional] set custom header number. The header is used to identify your discovery from others
+    /// if your not testing you should use this to set a [random](https://www.random.org) number.
     #[must_use]
     pub fn with_header(mut self, header: u64) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.header = header;
         self
     }
+    /// [optional] set custom port for discovery. This port needs to be free and unused on all nodes.
     #[must_use]
     pub fn with_discovery_port(mut self, port: u16) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.discovery_port = port;
         self
     }
+    /// [optional] duration between discovery broadcasts, decreases linearly from `max` to `min`
+    /// over `rampdown` period.
     /// # Panics
     /// panics if min is larger then max
     #[must_use]
@@ -161,6 +176,28 @@ impl ChartBuilder<1, Yes, No, No> {
 }
 
 impl ChartBuilder<1, Yes, Yes, No> {
+    /// build a chart that has one or more service ports set
+    ///
+    /// example:
+    /// ```rust
+    ///use multicast_discovery::{discovery, ChartBuilder};
+    ///
+    ///#[tokio::main]
+    ///async fn main() {
+    ///   let chart = ChartBuilder::new()
+    ///       .with_id(1)
+    ///       .with_service_port(8042)
+    ///       .with_header(17249479) // optional
+    ///       .with_rampdown( // optional
+    ///           Duration::from_millis(10), 
+    ///           Duration::from_secs(10),
+    ///           Duration::from_secs(60)) 
+    ///       .finish()
+    ///       .unwrap();
+    ///   let maintain = discovery::maintain(chart.clone());
+    ///   let _ = tokio::spawn(maintain); // maintain task will run forever
+    /// }
+    /// ```
     /// # Errors
     /// If a discovery port was set this errors if it could not be opened. If no port was
     /// set this errors if no port on the system could be opened.

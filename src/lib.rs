@@ -29,8 +29,6 @@
 //!   let _ = tokio::spawn(maintain); // maintain task will run forever
 //! }
 //! ```
-//!
-//!
 
 mod chart;
 pub mod discovery;
