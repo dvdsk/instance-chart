@@ -35,7 +35,7 @@ where
     f2.await.accept_err_with(JoinError::is_cancelled).unwrap();
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip(chart))]
 pub async fn found_everyone<const N:usize, T>(chart: &Chart<N, T>, full_size: u16) 
 where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned
@@ -51,7 +51,7 @@ where
     );
 }
 
-#[tracing::instrument]
+#[tracing::instrument(skip(chart))]
 pub async fn found_majority<const N:usize, T>(chart: &Chart<N,T>, full_size: u16) 
 where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned

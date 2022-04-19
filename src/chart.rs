@@ -51,7 +51,7 @@ pub struct Chart<const N: usize, T: Debug + Clone + Serialize> {
 }
 
 impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self, buf))]
     fn process_buf<'de>(&self, buf: &'de [u8], addr: SocketAddr) -> bool
     where
         T: Serialize + DeserializeOwned + Debug,
