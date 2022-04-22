@@ -48,10 +48,10 @@ async fn node(id: u64, cluster_size: u16) {
     let _ = tokio::spawn(maintain);
 
     discovery::found_everyone(&chart, cluster_size).await;
-    info!("adresses: {:?}", chart.iter_n_port().collect::<Vec<_>>());
+    info!("adresses: {:?}", chart.iter_addr_lists().collect::<Vec<_>>());
     info!(
         "adresses: {:?}",
-        chart.iter_nth_port::<1>().collect::<Vec<_>>()
+        chart.iter_nth_addr::<1>().collect::<Vec<_>>()
     );
     info!("discovery complete: {chart:?}");
 }

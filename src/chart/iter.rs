@@ -6,18 +6,18 @@ use super::{Chart, Entry, Id};
 impl<const N: usize> Chart<N, Port> {
     /// Note iteration order is random
     #[must_use]
-    pub fn iter_n_port<'a>(&'a self) -> IterNPort<'a, N> {
-        IterNPort {
+    pub fn iter_addr_lists<'a>(&'a self) -> IterAddrLists<'a, N> {
+        IterAddrLists {
             inner: self.map.iter(),
         }
     }
 }
 
-pub struct IterNPort<'a, const N: usize> {
+pub struct IterAddrLists<'a, const N: usize> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; N]>>,
 }
 
-impl<'a, const N: usize> Iterator for IterNPort<'a, N> {
+impl<'a, const N: usize> Iterator for IterAddrLists<'a, N> {
     type Item = [SocketAddr; N];
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -30,18 +30,18 @@ impl<'a, const N: usize> Iterator for IterNPort<'a, N> {
 impl<const N: usize> Chart<N, Port> {
     /// Note iteration order is random
     #[must_use]
-    pub fn iter_nth_port<'a, const IDX: usize>(&'a self) -> IterNthPort<'a, N, IDX> {
-        IterNthPort {
+    pub fn iter_nth_addr<'a, const IDX: usize>(&'a self) -> IterNthAddr<'a, N, IDX> {
+        IterNthAddr {
             inner: self.map.iter(),
         }
     }
 }
 
-pub struct IterNthPort<'a, const N: usize, const IDX: usize> {
+pub struct IterNthAddr<'a, const N: usize, const IDX: usize> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; N]>>,
 }
 
-impl<'a, const N: usize, const IDX: usize> Iterator for IterNthPort<'a, N, IDX> {
+impl<'a, const N: usize, const IDX: usize> Iterator for IterNthAddr<'a, N, IDX> {
     type Item = SocketAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -55,18 +55,18 @@ impl<'a, const N: usize, const IDX: usize> Iterator for IterNthPort<'a, N, IDX> 
 impl<'a> Chart<1, Port> {
     /// Note iteration order is random
     #[must_use]
-    pub fn iter_ports(&'a self) -> IterPorts<'a> {
-        IterPorts {
+    pub fn iter_addr(&'a self) -> IterAddr<'a> {
+        IterAddr {
             inner: self.map.iter(),
         }
     }
 }
 
-pub struct IterPorts<'a> {
+pub struct IterAddr<'a> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; 1]>>,
 }
 
-impl<'a> Iterator for IterPorts<'a> {
+impl<'a> Iterator for IterAddr<'a> {
     type Item = SocketAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -79,8 +79,7 @@ impl<'a> Iterator for IterPorts<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::chart::Entry;
-    use crate::chart::Interval;
+    use crate::chart::{Entry, Interval};
     use crate::{Chart, Id};
     use dashmap::DashMap;
     use serde::Serialize;
@@ -118,7 +117,7 @@ mod tests {
         }
 
         let chart = Chart::test(test_kv).await;
-        let iter: HashSet<_> = chart.iter_ports().collect();
+        let iter: HashSet<_> = chart.iter_addr().collect();
         let correct: HashSet<_> = (1..10)
             .map(test_kv)
             .map(|(_, e)| e)
@@ -146,7 +145,7 @@ mod tests {
     #[tokio::test]
     async fn iter_n_ports() {
         let chart = Chart::test(entry_3ports).await;
-        let iter: HashSet<_> = chart.iter_n_port().collect();
+        let iter: HashSet<_> = chart.iter_addr_lists().collect();
         let correct: HashSet<_> = (1..10)
             .map(entry_3ports)
             .map(|(_, e)| e)
@@ -157,7 +156,7 @@ mod tests {
     #[tokio::test]
     async fn iter_nth_port() {
         let chart = Chart::test(entry_3ports).await;
-        let iter: HashSet<_> = chart.iter_nth_port::<1>().collect();
+        let iter: HashSet<_> = chart.iter_nth_addr::<1>().collect();
         let correct: HashSet<_> = (1..10)
             .map(entry_3ports)
             .map(|(_, e)| e)
