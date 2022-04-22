@@ -105,7 +105,7 @@ mod tests {
             call_next = call_next + Duration::from_secs_f32(0.1);
             sleep_until(call_next).await;
             let correct = Duration::from_secs_f32(0.1 * (i as f32)).as_millis();
-            assert_lt!(u128::abs_diff(interval.now().as_millis(), correct), i * 20);
+            assert_lt!(u128::abs_diff(interval.now().as_millis(), correct), i * 50);
         }
     }
 }
