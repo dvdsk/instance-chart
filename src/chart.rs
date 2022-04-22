@@ -11,17 +11,22 @@ use serde::Serialize;
 use serde_big_array::BigArray;
 use tokio::net::UdpSocket;
 use tokio::sync::broadcast;
-use tokio::sync::broadcast::error::RecvError;
+
 
 mod interval;
 use interval::Interval;
 use tracing::trace;
 
+mod notify;
+use notify::Notify;
+
 use crate::Id;
 mod builder;
+use builder::Port;
 pub use builder::ChartBuilder;
 
-use self::builder::Port;
+mod iter;
+
 use self::interval::Until;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -81,44 +86,6 @@ impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
     }
 }
 
-impl Chart<1, Port> {
-    #[must_use]
-    pub fn our_service_port(&self) -> u16 {
-        self.msg[0]
-    }
-}
-
-impl<const N: usize> Chart<N, Port> {
-    #[must_use]
-    pub fn adress_arrays(&self) -> Vec<[SocketAddr; N]> {
-        self.map
-            .iter()
-            .map(|m| {
-                let Entry { ip, msg: ports } = m.value();
-                ports.map(|p| SocketAddr::new(*ip, p))
-            })
-            .collect()
-    }
-
-    #[must_use]
-    pub fn adresses_nth<const IDX: usize>(&self) -> Vec<SocketAddr> {
-        self.map
-            .iter()
-            .map(|m| {
-                let Entry { ip, msg: ports } = m.value();
-                ports.map(|p| SocketAddr::new(*ip, p))[IDX]
-            })
-            .collect()
-    }
-}
-
-impl Chart<1, Port> {
-    #[must_use]
-    pub fn adresses(&self) -> Vec<SocketAddr> {
-        self.adresses_nth::<1>()
-    }
-}
-
 impl<const N: usize> Chart<N, Port> {
     #[must_use]
     pub fn our_service_ports(&self) -> &[u16] {
@@ -133,33 +100,10 @@ impl<T: Debug + Clone + Serialize> Chart<1, T> {
     }
 }
 
-pub struct Notify<const N: usize, T: Debug + Clone>(broadcast::Receiver<(Id, Entry<[T; N]>)>);
-
-impl<T: Debug + Clone> Notify<1, T> {
-    pub async fn recv_one(&mut self) -> Result<(Id, IpAddr, T), RecvError> {
-        let (id, ip, [msg]) = self.recv().await?;
-        Ok((id, ip, msg))
-    }
-}
-
-impl<const N: usize, T: Debug + Clone> Notify<N, T> {
-    pub async fn recv(&mut self) -> Result<(Id, IpAddr, [T; N]), RecvError> {
-        let (id, entry) = self.0.recv().await?;
-        Ok((id, entry.ip, entry.msg))
-    }
-}
-
-impl Notify<1, u16> {
-    pub async fn recv_addr(&mut self) -> Result<(Id, SocketAddr), RecvError> {
-        let (id, ip, [port]) = self.recv().await?;
-        Ok((id, SocketAddr::new(ip, port)))
-    }
-}
-
-impl<const N: usize> Notify<N, u16> {
-    pub async fn recv_addresses(&mut self) -> Result<[(Id, SocketAddr); N], RecvError> {
-        let (id, ip, ports) = self.recv().await?;
-        Ok(ports.map(|p| (id, SocketAddr::new(ip, p))))
+impl Chart<1, Port> {
+    #[must_use]
+    pub fn our_service_port(&self) -> u16 {
+        self.msg[0]
     }
 }
 
