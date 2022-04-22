@@ -9,6 +9,7 @@ use crate::Error;
 use super::{interval, Chart, Id};
 use serde::Serialize;
 use tokio::net::UdpSocket;
+use tokio::sync::broadcast;
 
 #[derive(Debug, Default)]
 pub struct Yes;
@@ -200,6 +201,7 @@ impl ChartBuilder<1, Yes, No, No> {
             sock: Arc::new(sock),
             map: Arc::new(dashmap::DashMap::new()),
             interval: self.rampdown.into(),
+            broadcast: broadcast::channel(16).0,
         })
     }
 }
@@ -241,6 +243,7 @@ impl ChartBuilder<1, Yes, Yes, No> {
             sock: Arc::new(sock),
             map: Arc::new(dashmap::DashMap::new()),
             interval: self.rampdown.into(),
+            broadcast: broadcast::channel(16).0,
         })
     }
 }
@@ -282,6 +285,7 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
             sock: Arc::new(sock),
             map: Arc::new(dashmap::DashMap::new()),
             interval: self.rampdown.into(),
+            broadcast: broadcast::channel(16).0,
         })
     }
 }

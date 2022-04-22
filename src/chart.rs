@@ -5,12 +5,13 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
 use serde::Serialize;
 use serde_big_array::BigArray;
 use tokio::net::UdpSocket;
-use tracing::debug;
+use tokio::sync::broadcast;
+use tokio::sync::broadcast::error::RecvError;
 
 mod interval;
 use interval::Interval;
@@ -24,9 +25,9 @@ use self::builder::Port;
 use self::interval::Until;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub struct DiscoveryMsg<const N: usize, T> 
-where 
-    T: Serialize + DeserializeOwned
+pub struct DiscoveryMsg<const N: usize, T>
+where
+    T: Serialize + DeserializeOwned,
 {
     header: u64,
     id: Id,
@@ -36,8 +37,8 @@ where
 
 #[derive(Debug, Clone)]
 pub struct Entry<Msg: Debug + Clone> {
-    ip: IpAddr,
-    msg: Msg,
+    pub ip: IpAddr,
+    pub msg: Msg,
 }
 
 #[derive(Debug, Clone)]
@@ -47,10 +48,23 @@ pub struct Chart<const N: usize, T: Debug + Clone + Serialize> {
     msg: [T; N],
     sock: Arc<UdpSocket>,
     interval: Interval,
-    map: Arc<dashmap::DashMap<Id, Entry<[T;N]>>>,
+    map: Arc<dashmap::DashMap<Id, Entry<[T; N]>>>,
+    broadcast: broadcast::Sender<(Id, Entry<[T; N]>)>,
 }
 
 impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
+    fn insert(&self, id: Id, entry: Entry<[T; N]>) -> bool {
+        let old_key = self.map.insert(id, entry.clone());
+        if old_key.is_none() {
+            // errors if there are no active recievers which is
+            // the default and not a problem
+            let _ig_err = self.broadcast.send((id, entry));
+            true
+        } else {
+            false
+        }
+    }
+
     #[tracing::instrument(skip(self, buf))]
     fn process_buf<'de>(&self, buf: &'de [u8], addr: SocketAddr) -> bool
     where
@@ -63,16 +77,7 @@ impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
         if id == self.service_id {
             return false;
         }
-        let old_key = self.map.insert(id, Entry { ip: addr.ip(), msg });
-        if old_key.is_none() {
-            debug!(
-                "added node: id: {id}, address: {addr:?}, n discoverd: ({})",
-                self.size()
-            );
-            true
-        } else {
-            false
-        }
+        self.insert(id, Entry { ip: addr.ip(), msg })
     }
 }
 
@@ -89,8 +94,8 @@ impl<const N: usize> Chart<N, Port> {
         self.map
             .iter()
             .map(|m| {
-                let Entry {ip, msg: ports} = m.value();
-                ports.map(|p| SocketAddr::from((*ip, p)))
+                let Entry { ip, msg: ports } = m.value();
+                ports.map(|p| SocketAddr::new(*ip, p))
             })
             .collect()
     }
@@ -100,8 +105,8 @@ impl<const N: usize> Chart<N, Port> {
         self.map
             .iter()
             .map(|m| {
-                let Entry {ip, msg: ports} = m.value();
-                ports.map(|p| SocketAddr::from((*ip, p)))[IDX]
+                let Entry { ip, msg: ports } = m.value();
+                ports.map(|p| SocketAddr::new(*ip, p))[IDX]
             })
             .collect()
     }
@@ -128,9 +133,43 @@ impl<T: Debug + Clone + Serialize> Chart<1, T> {
     }
 }
 
+pub struct Notify<const N: usize, T: Debug + Clone>(broadcast::Receiver<(Id, Entry<[T; N]>)>);
+
+impl<T: Debug + Clone> Notify<1, T> {
+    pub async fn recv_one(&mut self) -> Result<(Id, IpAddr, T), RecvError> {
+        let (id, ip, [msg]) = self.recv().await?;
+        Ok((id, ip, msg))
+    }
+}
+
+impl<const N: usize, T: Debug + Clone> Notify<N, T> {
+    pub async fn recv(&mut self) -> Result<(Id, IpAddr, [T; N]), RecvError> {
+        let (id, entry) = self.0.recv().await?;
+        Ok((id, entry.ip, entry.msg))
+    }
+}
+
+impl Notify<1, u16> {
+    pub async fn recv_addr(&mut self) -> Result<(Id, SocketAddr), RecvError> {
+        let (id, ip, [port]) = self.recv().await?;
+        Ok((id, SocketAddr::new(ip, port)))
+    }
+}
+
+impl<const N: usize> Notify<N, u16> {
+    pub async fn recv_addresses(&mut self) -> Result<[(Id, SocketAddr); N], RecvError> {
+        let (id, ip, ports) = self.recv().await?;
+        Ok(ports.map(|p| (id, SocketAddr::new(ip, p))))
+    }
+}
+
 impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T> {
+    pub async fn notify(&self) -> Notify<N, T> {
+        Notify(self.broadcast.subscribe())
+    }
+
     #[must_use]
-    pub fn entries(&self) -> Vec<Entry<[T;N]>> {
+    pub fn entries(&self) -> Vec<Entry<[T; N]>> {
         self.map.iter().map(|m| m.value().clone()).collect()
     }
 
@@ -173,7 +212,7 @@ impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T
 }
 
 #[tracing::instrument]
-pub async fn handle_incoming<const N: usize, T>(mut chart: Chart<N,T>)
+pub async fn handle_incoming<const N: usize, T>(mut chart: Chart<N, T>)
 where
     T: Debug + Clone + Serialize + DeserializeOwned,
 {
@@ -193,7 +232,7 @@ where
 }
 
 #[tracing::instrument]
-pub async fn broadcast_periodically<const N:usize, T>(mut chart: Chart<N, T>, period: Duration)
+pub async fn broadcast_periodically<const N: usize, T>(mut chart: Chart<N, T>, period: Duration)
 where
     T: Debug + Serialize + DeserializeOwned + Clone,
 {

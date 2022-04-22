@@ -3,7 +3,6 @@ use std::time::Duration;
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use tokio::time::sleep;
 use tracing::info;
 
 use crate::Chart;
@@ -45,8 +44,9 @@ where
 {
     assert!(full_size > 2, "minimal cluster size is 3");
 
-    while chart.size() < full_size.into() {
-        sleep(Duration::from_millis(100)).await;
+    let mut node_discoverd = chart.notify().await;
+    while chart.size() < full_size as usize {
+        node_discoverd.recv().await.unwrap();
     }
     info!(
         "found every member of the cluster, ({} nodes)",
@@ -62,10 +62,11 @@ where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned
 {
     assert!(full_size > 2, "minimal cluster size is 3");
-
     let cluster_majority = (f32::from(full_size) * 0.5).ceil() as usize;
+
+    let mut node_discoverd = chart.notify().await;
     while chart.size() < cluster_majority {
-        sleep(Duration::from_millis(100)).await;
+        node_discoverd.recv().await.unwrap();
     }
     info!("found majority of cluster, ({} nodes)", chart.size());
 }
