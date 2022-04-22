@@ -1,4 +1,5 @@
 Simple lightweight local service discovery for testing
+Supports MacOs and Linux
 
 This crate provides a lightweight alternative to `mDNS`. It discovers other instances on the
 same machine or network. You provide an Id and Port you wish to be contacted on. Multicast-discovery
