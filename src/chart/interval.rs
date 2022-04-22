@@ -81,21 +81,25 @@ impl Until for tokio::time::Instant {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use more_asserts::*;
     use tokio::time::sleep_until;
 
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
+    impl Interval {
+        pub(crate) fn test() -> Self {
+            Params {
+                min: Duration::from_secs(0),
+                max: Duration::from_secs(1),
+                rampdown: Duration::from_secs(1),
+            }
+            .into()
+        }
+    }
 
     #[tokio::test]
     async fn test_interval() {
         let mut call_next = tokio::time::Instant::now();
-        let mut interval: Interval = Params {
-            min: Duration::from_secs(0),
-            max: Duration::from_secs(1),
-            rampdown: Duration::from_secs(1),
-        }
-        .into();
+        let mut interval = Interval::test();
 
         for i in 1..=10 {
             call_next = call_next + Duration::from_secs_f32(0.1);

@@ -47,7 +47,7 @@ async fn node(id: u64, cluster_size: u16) {
 
     if id == 0 {
         let mut new = chart.notify().await;
-        let mut discoverd: HashSet<_> = chart.adresses().into_iter().collect();
+        let mut discoverd: HashSet<_> = chart.iter_ports().into_iter().collect();
 
         while discoverd.len() + 1 < cluster_size as usize {
             let (_id, ip, msg) = new.recv().await.unwrap();
