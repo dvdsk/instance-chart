@@ -4,7 +4,8 @@ use super::builder::Port;
 use super::{Chart, Entry, Id};
 
 impl<const N: usize> Chart<N, Port> {
-    /// Note iteration order is random
+    /// Returns an iterator over each discovered node's socketadresses.
+    /// __note: iteration order is random__
     #[must_use]
     pub fn iter_addr_lists<'a>(&'a self) -> IterAddrLists<'a, N> {
         IterAddrLists {
@@ -28,7 +29,9 @@ impl<'a, const N: usize> Iterator for IterAddrLists<'a, N> {
 }
 
 impl<const N: usize> Chart<N, Port> {
-    /// Note iteration order is random
+    /// Returns an iterator over each discoverd node's nth-socketadress
+    /// of each node.
+    /// __note: iteration order is random__
     #[must_use]
     pub fn iter_nth_addr<'a, const IDX: usize>(&'a self) -> IterNthAddr<'a, N, IDX> {
         IterNthAddr {
@@ -53,6 +56,7 @@ impl<'a, const N: usize, const IDX: usize> Iterator for IterNthAddr<'a, N, IDX> 
 }
 
 impl<'a> Chart<1, Port> {
+    /// Returns an iterator over each discoverd nodes's socketadress
     /// Note iteration order is random
     #[must_use]
     pub fn iter_addr(&'a self) -> IterAddr<'a> {

@@ -9,6 +9,7 @@ use tokio::sync::broadcast::error::RecvError;
 pub struct Notify<const N: usize, T: Debug + Clone>(pub(super) broadcast::Receiver<(Id, Entry<[T; N]>)>);
 
 impl<T: Debug + Clone> Notify<1, T> {
+    /// Returns when a new node is discovered
     pub async fn recv_one(&mut self) -> Result<(Id, IpAddr, T), RecvError> {
         let (id, ip, [msg]) = self.recv().await?;
         Ok((id, ip, msg))
