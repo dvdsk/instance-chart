@@ -1,4 +1,5 @@
-use multicast_discovery::{ChartBuilder, discovery};
+use futures::future::select_all;
+use multicast_discovery::{discovery, ChartBuilder};
 use std::net::UdpSocket;
 use tracing::info;
 
@@ -26,9 +27,8 @@ async fn local_discovery() {
         .map(|id| tokio::spawn(node(id.into(), cluster_size)))
         .collect();
 
-    for h in handles {
-        h.await.unwrap();
-    }
+    // in the future use Tokio::JoinSet
+    select_all(handles).await.0.unwrap();
 }
 
 async fn node(id: u64, cluster_size: u16) {
@@ -39,11 +39,12 @@ async fn node(id: u64, cluster_size: u16) {
     let chart = ChartBuilder::new()
         .with_id(id)
         .with_service_port(port)
+        .local_discovery(true)
         .finish()
         .unwrap();
     let maintain = discovery::maintain(chart.clone());
     let _ = tokio::spawn(maintain);
-
     discovery::found_everyone(&chart, cluster_size).await;
+
     info!("discovery complete: {chart:?}");
 }

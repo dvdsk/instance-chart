@@ -31,9 +31,9 @@ const DEFAULT_PORT: u16 = 8080;
 
 pub type Port = u16;
 
-/// Construct a Chart using a builder-like pattern. You must always set an `id`. You also 
+/// Construct a Chart using a builder-like pattern. You must always set an `id`. You also
 /// need to set `service port` or `service ports` and build with `finish()` or set a custom `msg`
-/// and build using `custom_msg()`. See the examples of [ChartBuilder::custom_msg()] 
+/// and build using `custom_msg()`. See the examples of [ChartBuilder::custom_msg()]
 /// or [ChartBuilder::finish()].
 #[allow(clippy::pedantic)]
 pub struct ChartBuilder<const N: usize, IdSet, PortSet, PortsSet>
@@ -48,6 +48,7 @@ where
     service_port: Option<u16>,
     service_ports: [u16; N],
     rampdown: interval::Params,
+    local: bool,
     id_set: PhantomData<IdSet>,
     port_set: PhantomData<PortSet>,
     ports_set: PhantomData<PortsSet>,
@@ -65,6 +66,7 @@ impl<const N: usize> ChartBuilder<N, No, No, No> {
             service_ports: [0u16; N],
             service_port: None,
             rampdown: interval::Params::default(),
+            local: false,
             id_set: PhantomData {},
             port_set: PhantomData {},
             ports_set: PhantomData {},
@@ -88,6 +90,7 @@ where
             service_port: self.service_port,
             service_ports: self.service_ports,
             rampdown: self.rampdown,
+            local: self.local,
             id_set: PhantomData {},
             port_set: PhantomData {},
             ports_set: PhantomData {},
@@ -104,6 +107,7 @@ where
             service_port: Some(port),
             service_ports: self.service_ports,
             rampdown: self.rampdown,
+            local: self.local,
             id_set: PhantomData {},
             port_set: PhantomData {},
             ports_set: PhantomData {},
@@ -120,20 +124,22 @@ where
             service_port: None,
             service_ports: ports,
             rampdown: self.rampdown,
+            local: self.local,
             id_set: PhantomData {},
             port_set: PhantomData {},
             ports_set: PhantomData {},
         }
     }
-    /// _\[optional\]_ set a custom header number. The header is used to identify your application's chart 
+    /// _\[optional\]_ set a custom header number. The header is used to identify your application's chart
     /// from others multicast traffic when deployed your should set this to a [random](https://www.random.org) number.
     #[must_use]
     pub fn with_header(mut self, header: u64) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.header = header;
         self
     }
-    /// _\[optional\]_ set custom port for discovery. This port needs to be free and unused on all nodes. If 
-    /// it is not free the multicast traffic caused by this library might corrupt data.
+    /// _\[optional\]_ set custom port for discovery. With [local discovery] enabled this port needs to be
+    /// free and unused on all nodes it is not free the multicast traffic caused by this library
+    /// might corrupt network data of other applications.
     #[must_use]
     pub fn with_discovery_port(mut self, port: u16) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.discovery_port = port;
@@ -157,10 +163,24 @@ where
         self.rampdown = interval::Params { rampdown, min, max };
         self
     }
+
+    #[must_use]
+    /// _\[optional\]_ set whether discovery is enabled within the same host. Defaults to false.
+    ///
+    /// # Warning
+    /// When this is enabled you will not be warned if the `discovery port` is in use by another application.
+    /// Any applicatin using the discovery port will probably have its network traffic corrupted .
+    pub fn local_discovery(
+        mut self,
+        is_enabled: bool,
+    ) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
+        self.local = is_enabled;
+        self
+    }
 }
 
 impl ChartBuilder<1, Yes, No, No> {
-    /// build a chart with a custom msg instead of a service port. The message can 
+    /// build a chart with a custom msg instead of a service port. The message can
     /// be any struct that implements `Debug`, `Clone`, `serde::Serialize` and `serde::Deserialize`
     ///
     /// example:
@@ -180,9 +200,9 @@ impl ChartBuilder<1, Yes, No, No> {
     ///       .with_discovery_port(8888)
     ///       .with_header(17249479) // optional
     ///       .with_rampdown( // optional
-    ///           Duration::from_millis(10), 
+    ///           Duration::from_millis(10),
     ///           Duration::from_secs(10),
-    ///           Duration::from_secs(60)) 
+    ///           Duration::from_secs(60))
     ///       .custom_msg(msg)
     ///       .unwrap();
     ///   let maintain = discovery::maintain(chart.clone());
@@ -190,14 +210,13 @@ impl ChartBuilder<1, Yes, No, No> {
     /// }
     /// ```
     /// # Errors
-    /// If a discovery port was set this errors if it could not be opened. If no port was
-    /// set this errors if no port on the system could be opened.
+    /// This errors if the discovery port could not be opened. 
     #[allow(clippy::missing_panics_doc)] // with generic IdSet and PortSet set service_id must be set
     pub fn custom_msg<Msg>(self, msg: Msg) -> Result<Chart<1, Msg>, Error>
     where
         Msg: Debug + Serialize + Clone,
     {
-        let sock = open_socket(self.discovery_port)?;
+        let sock = open_socket(self.discovery_port, self.local)?;
         Ok(Chart {
             header: self.header,
             service_id: self.service_id.unwrap(),
@@ -226,9 +245,9 @@ impl ChartBuilder<1, Yes, Yes, No> {
     ///       .with_discovery_port(8888)
     ///       .with_header(17249479) // optional
     ///       .with_rampdown( // optional
-    ///           Duration::from_millis(10), 
+    ///           Duration::from_millis(10),
     ///           Duration::from_secs(10),
-    ///           Duration::from_secs(60)) 
+    ///           Duration::from_secs(60))
     ///       .finish()
     ///       .unwrap();
     ///   let maintain = discovery::maintain(chart.clone());
@@ -236,12 +255,11 @@ impl ChartBuilder<1, Yes, Yes, No> {
     /// }
     /// ```
     /// # Errors
-    /// If a discovery port was set this errors if it could not be opened. If no port was
-    /// set this errors if no port on the system could be opened.
+    /// This errors if the discovery port could not be opened. 
     // with generic IdSet, PortSet set service_id and service_port are always Some
-    #[allow(clippy::missing_panics_doc)] 
+    #[allow(clippy::missing_panics_doc)]
     pub fn finish(self) -> Result<Chart<1, Port>, Error> {
-        let sock = open_socket(self.discovery_port)?;
+        let sock = open_socket(self.discovery_port, self.local)?;
         Ok(Chart {
             header: self.header,
             service_id: self.service_id.unwrap(),
@@ -270,9 +288,9 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     ///       .with_discovery_port(8888)
     ///       .with_header(17249479) // optional
     ///       .with_rampdown( // optional
-    ///           Duration::from_millis(10), 
+    ///           Duration::from_millis(10),
     ///           Duration::from_secs(10),
-    ///           Duration::from_secs(60)) 
+    ///           Duration::from_secs(60))
     ///       .finish()
     ///       .unwrap();
     ///   let maintain = discovery::maintain(chart.clone());
@@ -280,12 +298,11 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     /// }
     /// ```
     /// # Errors
-    /// If a discovery port was set this errors if it could not be opened. If no port was
-    /// set this errors if no port on the system could be opened.
+    /// This errors if the discovery port could not be opened. 
     // with generic IdSet, PortSets set service_id and service_ports are always Some
-    #[allow(clippy::missing_panics_doc)] 
+    #[allow(clippy::missing_panics_doc)]
     pub fn finish(self) -> Result<Chart<N, Port>, Error> {
-        let sock = open_socket(self.discovery_port)?;
+        let sock = open_socket(self.discovery_port, self.local)?;
         Ok(Chart {
             header: self.header,
             service_id: self.service_id.unwrap(),
@@ -298,7 +315,7 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     }
 }
 
-fn open_socket(port: u16) -> Result<UdpSocket, Error> {
+fn open_socket(port: u16, local_discovery: bool) -> Result<UdpSocket, Error> {
     use socket2::{Domain, SockAddr, Socket, Type};
     use Error::*;
 
@@ -308,7 +325,10 @@ fn open_socket(port: u16) -> Result<UdpSocket, Error> {
     let multiaddr = Ipv4Addr::from([224, 0, 0, 251]);
 
     let sock = Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(Construct)?;
-    sock.set_reuse_port(true).map_err(SetReuse)?; // allow binding to a port already in use
+
+    if local_discovery {
+        sock.set_reuse_port(true).map_err(SetReuse)?; // allow binding to a port already in use
+    }
     sock.set_broadcast(true).map_err(SetBroadcast)?; // enable udp broadcasting
     sock.set_multicast_loop_v4(true).map_err(SetMulticast)?; // send broadcast to self
 
@@ -333,6 +353,7 @@ mod compiles {
         let chart = ChartBuilder::new()
             .with_id(0)
             .with_service_port(15)
+            .local_discovery(true)
             .finish()
             .unwrap();
         let _ = chart.our_service_port();
@@ -343,6 +364,7 @@ mod compiles {
         let chart = ChartBuilder::new()
             .with_id(0)
             .with_service_ports([1, 2])
+            .local_discovery(true)
             .finish()
             .unwrap();
         let _ = chart.our_service_ports();
@@ -350,7 +372,11 @@ mod compiles {
 
     #[tokio::test]
     async fn custom_msg() {
-        let chart = ChartBuilder::new().with_id(0).custom_msg("hi").unwrap();
+        let chart = ChartBuilder::new()
+            .with_id(0)
+            .local_discovery(true)
+            .custom_msg("hi")
+            .unwrap();
         let _ = chart.our_msg();
     }
 }
