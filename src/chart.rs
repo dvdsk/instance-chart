@@ -18,7 +18,7 @@ use interval::Interval;
 use tracing::trace;
 
 mod notify;
-use notify::Notify;
+pub use notify::Notify;
 
 use crate::Id;
 mod builder;
@@ -26,7 +26,7 @@ use builder::Port;
 
 pub use builder::ChartBuilder;
 
-mod iter;
+pub mod iter;
 
 use self::interval::Until;
 
@@ -118,7 +118,7 @@ impl<T: Debug + Clone + Serialize> Chart<1, T> {
 }
 
 impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T> {
-    /// Wait for new discoveries. Use one of the methods on the notify object
+    /// Wait for new discoveries. Use one of the methods on the [notify object](notify::Notify)
     /// to _await_ a new discovery and get the data.
     #[must_use]
     pub fn notify(&self) -> Notify<N, T> {

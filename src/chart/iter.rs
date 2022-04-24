@@ -7,13 +7,15 @@ impl<const N: usize> Chart<N, Port> {
     /// Returns an iterator over each discovered node's socketadresses.
     /// __note: iteration order is random__
     #[must_use]
-    pub fn iter_addr_lists(& self) -> IterAddrLists<'_, N> {
+    pub fn iter_addr_lists(&self) -> IterAddrLists<'_, N> {
         IterAddrLists {
             inner: self.map.iter(),
         }
     }
 }
 
+/// Iterator over arrays of SocketAddres, Can only be used with a chart build using [ChartBuilder::finish](crate::ChartBuilder::finish) and with
+/// [ChartBuilder::with_service_ports](crate::ChartBuilder::with_service_ports)
 #[allow(clippy::module_name_repetitions)]
 pub struct IterAddrLists<'a, const N: usize> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; N]>>,
@@ -41,6 +43,8 @@ impl<const N: usize> Chart<N, Port> {
     }
 }
 
+/// Iterator over the n-th SocketAddres for a Chart where each instance has
+/// multiple service-ports. Can only be used with a chart build using [ChartBuilder::custom_msg](crate::ChartBuilder::custom_msg)
 #[allow(clippy::module_name_repetitions)]
 pub struct IterNthAddr<'a, const N: usize, const IDX: usize> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; N]>>,
@@ -68,6 +72,9 @@ impl<'a> Chart<1, Port> {
     }
 }
 
+/// Iterator over SocketAddres. Can only be used with a chart build using 
+/// [ChartBuilder::finish](crate::ChartBuilder::finish) and with 
+/// [ChartBuilder::with_service_port](crate::ChartBuilder::with_service_port)
 #[allow(clippy::module_name_repetitions)]
 pub struct IterAddr<'a> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; 1]>>,

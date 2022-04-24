@@ -22,7 +22,7 @@ impl<T, E> AcceptErr<T, E> for Result<T, E> {
     }
 }
 
-/// This drives the chart discovery. You can drop the future but the chart
+/// This drives the chart discovery. You can drop the future but then the chart
 /// will no longer be updated.
 #[tracing::instrument]
 pub async fn maintain<'de, const N: usize, T>(chart: Chart<N, T>) 

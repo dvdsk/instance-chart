@@ -31,10 +31,10 @@ const DEFAULT_PORT: u16 = 8080;
 
 pub type Port = u16;
 
-/// Builder used to construct a Chart using a builder-like pattern. You must set
-/// id. One of: service port, service ports then build with `finish()` or set a custom msg
-/// and build using `custom_msg()`. Take a look at the examples of [`custom_msg`](ChartBuilder::custom_msg()) 
-/// or [finish](ChartBuilder::finish()).
+/// Construct a Chart using a builder-like pattern. You must always set an `id`. You also 
+/// need to set `service port` or `service ports` and build with `finish()` or set a custom `msg`
+/// and build using `custom_msg()`. See the examples of [ChartBuilder::custom_msg()] 
+/// or [ChartBuilder::finish()].
 #[allow(clippy::pedantic)]
 pub struct ChartBuilder<const N: usize, IdSet, PortSet, PortsSet>
 where
@@ -54,7 +54,7 @@ where
 }
 
 impl<const N: usize> ChartBuilder<N, No, No, No> {
-    /// create a chat builder
+    /// Create a new chart builder
     #[allow(clippy::new_without_default)] // builder struct not valid without other methods
     #[must_use]
     pub fn new() -> ChartBuilder<N, No, No, No> {
@@ -78,7 +78,7 @@ where
     PortSet: ToAssign,
     PortsSet: ToAssign,
 {
-    /// id for this node, this will be the key in the chart for this node
+    /// Set the `id` for this node, the `id` is the key for this node in the chart
     #[must_use]
     pub fn with_id(self, id: Id) -> ChartBuilder<N, Yes, PortSet, PortsSet> {
         ChartBuilder {
@@ -93,7 +93,7 @@ where
             ports_set: PhantomData {},
         }
     }
-    /// port this node accepts service traffic. The port will appear to the other
+    /// Set a `port` for use by your application. This will appear to the other
     /// nodes in the Chart.
     #[must_use]
     pub fn with_service_port(self, port: u16) -> ChartBuilder<N, IdSet, Yes, No> {
@@ -109,7 +109,7 @@ where
             ports_set: PhantomData {},
         }
     }
-    /// ports this node accepts service traffic. The port will appear to the other
+    /// Set mutiple `ports` for use by your application. This will appear to the other
     /// nodes in the Chart.
     #[must_use]
     pub fn with_service_ports(self, ports: [u16; N]) -> ChartBuilder<N, IdSet, No, Yes> {
@@ -125,20 +125,21 @@ where
             ports_set: PhantomData {},
         }
     }
-    /// _\[optional\]_ set custom header number. The header is used to identify your discovery from others
-    /// if your not testing you should use this to set a [random](https://www.random.org) number.
+    /// _\[optional\]_ set a custom header number. The header is used to identify your application's chart 
+    /// from others multicast traffic when deployed your should set this to a [random](https://www.random.org) number.
     #[must_use]
     pub fn with_header(mut self, header: u64) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.header = header;
         self
     }
-    /// _\[optional\]_ set custom port for discovery. This port needs to be free and unused on all nodes.
+    /// _\[optional\]_ set custom port for discovery. This port needs to be free and unused on all nodes. If 
+    /// it is not free the multicast traffic caused by this library might corrupt data.
     #[must_use]
     pub fn with_discovery_port(mut self, port: u16) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.discovery_port = port;
         self
     }
-    /// _\[optional\]_ duration between discovery broadcasts, decreases linearly from `max` to `min`
+    /// _\[optional\]_ set duration between discovery broadcasts, decreases linearly from `max` to `min`
     /// over `rampdown` period.
     /// # Panics
     /// panics if min is larger then max
