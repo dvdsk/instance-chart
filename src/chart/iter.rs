@@ -7,13 +7,14 @@ impl<const N: usize> Chart<N, Port> {
     /// Returns an iterator over each discovered node's socketadresses.
     /// __note: iteration order is random__
     #[must_use]
-    pub fn iter_addr_lists<'a>(&'a self) -> IterAddrLists<'a, N> {
+    pub fn iter_addr_lists(& self) -> IterAddrLists<'_, N> {
         IterAddrLists {
             inner: self.map.iter(),
         }
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub struct IterAddrLists<'a, const N: usize> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; N]>>,
 }
@@ -33,13 +34,14 @@ impl<const N: usize> Chart<N, Port> {
     /// of each node.
     /// __note: iteration order is random__
     #[must_use]
-    pub fn iter_nth_addr<'a, const IDX: usize>(&'a self) -> IterNthAddr<'a, N, IDX> {
+    pub fn iter_nth_addr<const IDX: usize>(&self) -> IterNthAddr<'_, N, IDX> {
         IterNthAddr {
             inner: self.map.iter(),
         }
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub struct IterNthAddr<'a, const N: usize, const IDX: usize> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; N]>>,
 }
@@ -66,6 +68,7 @@ impl<'a> Chart<1, Port> {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub struct IterAddr<'a> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; 1]>>,
 }

@@ -31,10 +31,11 @@ const DEFAULT_PORT: u16 = 8080;
 
 pub type Port = u16;
 
-/// The ChartBuilder, used to construct a Chart using a builder-like pattern. You must set
+/// Builder used to construct a Chart using a builder-like pattern. You must set
 /// id. One of: service port, service ports then build with `finish()` or set a custom msg
-/// and build using `custom_msg()`. Take a look at the examples of [custom_msg](ChartBuilder::custom_msg()) 
+/// and build using `custom_msg()`. Take a look at the examples of [`custom_msg`](ChartBuilder::custom_msg()) 
 /// or [finish](ChartBuilder::finish()).
+#[allow(clippy::pedantic)]
 pub struct ChartBuilder<const N: usize, IdSet, PortSet, PortsSet>
 where
     IdSet: ToAssign,
@@ -54,6 +55,7 @@ where
 
 impl<const N: usize> ChartBuilder<N, No, No, No> {
     /// create a chat builder
+    #[allow(clippy::new_without_default)] // builder struct not valid without other methods
     #[must_use]
     pub fn new() -> ChartBuilder<N, No, No, No> {
         ChartBuilder {
@@ -189,6 +191,7 @@ impl ChartBuilder<1, Yes, No, No> {
     /// # Errors
     /// If a discovery port was set this errors if it could not be opened. If no port was
     /// set this errors if no port on the system could be opened.
+    #[allow(clippy::missing_panics_doc)] // with generic IdSet and PortSet set service_id must be set
     pub fn custom_msg<Msg>(self, msg: Msg) -> Result<Chart<1, Msg>, Error>
     where
         Msg: Debug + Serialize + Clone,
@@ -234,6 +237,8 @@ impl ChartBuilder<1, Yes, Yes, No> {
     /// # Errors
     /// If a discovery port was set this errors if it could not be opened. If no port was
     /// set this errors if no port on the system could be opened.
+    // with generic IdSet, PortSet set service_id and service_port are always Some
+    #[allow(clippy::missing_panics_doc)] 
     pub fn finish(self) -> Result<Chart<1, Port>, Error> {
         let sock = open_socket(self.discovery_port)?;
         Ok(Chart {
@@ -276,6 +281,8 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     /// # Errors
     /// If a discovery port was set this errors if it could not be opened. If no port was
     /// set this errors if no port on the system could be opened.
+    // with generic IdSet, PortSets set service_id and service_ports are always Some
+    #[allow(clippy::missing_panics_doc)] 
     pub fn finish(self) -> Result<Chart<N, Port>, Error> {
         let sock = open_socket(self.discovery_port)?;
         Ok(Chart {
@@ -291,13 +298,14 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
 }
 
 fn open_socket(port: u16) -> Result<UdpSocket, Error> {
+    use socket2::{Domain, SockAddr, Socket, Type};
+    use Error::*;
+
     assert_ne!(port, 0);
 
     let interface = Ipv4Addr::from([0, 0, 0, 0]);
     let multiaddr = Ipv4Addr::from([224, 0, 0, 251]);
 
-    use socket2::{Domain, SockAddr, Socket, Type};
-    use Error::*;
     let sock = Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(Construct)?;
     sock.set_reuse_port(true).map_err(SetReuse)?; // allow binding to a port already in use
     sock.set_broadcast(true).map_err(SetBroadcast)?; // enable udp broadcasting

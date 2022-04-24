@@ -46,7 +46,7 @@ async fn node(id: u64, cluster_size: u16) {
     let _ = tokio::spawn(maintain);
 
     if id == 0 {
-        let mut new = chart.notify().await;
+        let mut new = chart.notify();
         let mut discoverd: HashSet<_> = chart.iter_addr().into_iter().collect();
 
         while discoverd.len() + 1 < cluster_size as usize {
