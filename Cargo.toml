@@ -9,6 +9,10 @@ repository = "https://github.com/dvdsk/instance-chart"
 license = "MIT"
 keywords = ["multicast", "discovery", "mdns", "peers"]
 categories = ["network-programming"]
+exclude = [
+	".github/workflows.test.yml",
+	".gitignore",
+]
 
 [badges]
 maintenance = { status = "passively-maintained" }
