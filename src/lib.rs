@@ -27,7 +27,7 @@
 //! ```rust
 //! use std::error::Error;
 //! use instance_chart::{discovery, ChartBuilder};
-//! 
+//!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn Error>> {
 //!    let chart = ChartBuilder::new()
@@ -42,6 +42,7 @@
 
 mod chart;
 pub mod discovery;
+mod util;
 use std::io;
 
 pub use chart::{Chart, ChartBuilder, Notify};
@@ -61,8 +62,8 @@ pub enum Error {
     SetTTL(io::Error),
     #[error("Error not set NonBlocking flag on the socket")]
     SetNonBlocking(io::Error),
-    #[error("Error binding to socket, you might want to try another discovery port or enable local_discovery")]
-    Bind(io::Error),
+    #[error("Error binding to socket, you might want to try another discovery port and/or enable local_discovery.")]
+    Bind { error: io::Error, port: u16 },
     #[error("Error joining multicast network")]
     JoinMulticast(io::Error),
     #[error("Error transforming to async socket")]

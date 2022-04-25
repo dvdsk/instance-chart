@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use instance_chart::{discovery, ChartBuilder};
-use tokio::join;
+use std::error::Error;
 use std::time::Duration;
 use indicatif::ProgressBar;
 
@@ -30,11 +30,11 @@ async fn main() {
 
     let mut ok = Vec::new();
     let pb = ProgressBar::new(jobs.len() as u64);
-    let mut jobs = futures::stream::iter(jobs).buffer_unordered(200);
+    let mut jobs = futures::stream::iter(jobs).buffer_unordered(400);
     while let Some(res) = jobs.next().await {
         pb.inc(1);
         if let Some(port) = res {
-            pb.println("found multicast port: {port}");
+            pb.println(format!("found multicast capable port: {}", port));
             ok.push(port)
         }
     }
@@ -45,31 +45,29 @@ async fn main() {
 async fn port_can_multicast(port: u16) -> Option<u16> {
     let a = node(1, 2, port);
     let b = node(2, 2, port);
-    let timeout = tokio::time::sleep(Duration::from_millis(500));
+    let timeout = tokio::time::sleep(Duration::from_millis(1000));
 
     tokio::select! {
-        _ = a => {
-            Some(port)
-        }
-        _ = b => {
-            Some(port)
-        }
+        res = a => res.ok().map(|()| port),
+        res = b => res.ok().map(|()| port),
         _ = timeout => {
             None
         }
     }
 }
 
-async fn node(id: u64, cluster_size: u16, port: u16) {
+async fn node(id: u64, cluster_size: u16, port: u16) -> Result<(), Box<dyn Error>>{
     let chart = ChartBuilder::new()
         .with_id(id)
         .with_service_port(42)
         .with_discovery_port(port)
         .local_discovery(true)
-        .finish()
-        .unwrap();
+        .finish()?;
     let maintain = discovery::maintain(chart.clone());
     let discover = discovery::found_everyone(&chart, cluster_size);
 
-    join!(maintain, discover);
+    tokio::select!{
+        _ = maintain => unreachable!(), 
+        _ = discover => Ok(()),
+    }
 }

@@ -169,10 +169,16 @@ where
 
     #[must_use]
     /// _\[optional\]_ set whether discovery is enabled within the same host. Defaults to false.
+    /// 
+    /// # Note 
+    /// Many ports do not work for multicast, use the example check_ports to find out which work on
+    /// your machine.
     ///
     /// # Warning
     /// When this is enabled you will not be warned if the `discovery port` is in use by another application.
-    /// Any applicatin using the discovery port will probably have its network traffic corrupted .
+    /// Any applicatin using the discovery port will probably have its network traffic corrupted.
+    /// Even if local_discovery is set to true ChartBuilder can fail if the `discovery port` is
+    /// bound to a multicast adress without `SO_REUSEADDR` set.
     pub fn local_discovery(
         mut self,
         is_enabled: bool,
@@ -214,7 +220,7 @@ impl ChartBuilder<1, Yes, No, No> {
     /// }
     /// ```
     /// # Errors
-    /// This errors if the discovery port could not be opened. 
+    /// This errors if the discovery port could not be opened.
     #[allow(clippy::missing_panics_doc)] // with generic IdSet and PortSet set service_id must be set
     pub fn custom_msg<Msg>(self, msg: Msg) -> Result<Chart<1, Msg>, Error>
     where
@@ -260,7 +266,7 @@ impl ChartBuilder<1, Yes, Yes, No> {
     /// }
     /// ```
     /// # Errors
-    /// This errors if the discovery port could not be opened. 
+    /// This errors if the discovery port could not be opened.
     // with generic IdSet, PortSet set service_id and service_port are always Some
     #[allow(clippy::missing_panics_doc)]
     pub fn finish(self) -> Result<Chart<1, Port>, Error> {
@@ -304,7 +310,7 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     /// }
     /// ```
     /// # Errors
-    /// This errors if the discovery port could not be opened. 
+    /// This errors if the discovery port could not be opened.
     // with generic IdSet, PortSets set service_id and service_ports are always Some
     #[allow(clippy::missing_panics_doc)]
     pub fn finish(self) -> Result<Chart<N, Port>, Error> {
@@ -341,7 +347,7 @@ fn open_socket(port: u16, local_discovery: bool) -> Result<UdpSocket, Error> {
 
     let address = SocketAddr::from((interface, port));
     let address = SockAddr::from(address);
-    sock.bind(&address).map_err(Bind)?;
+    sock.bind(&address).map_err(|error| Bind { error, port })?;
     sock.join_multicast_v4(&multiaddr, &interface)
         .map_err(JoinMulticast)?;
 
