@@ -1,32 +1,36 @@
-//! Simple lightweight local service discovery for testing
+//! Provides data for other instances on the same machine/network
 //!
 //! This crate provides a lightweight alternative to `mDNS`. It discovers other instances on the
-//! same machine or network. You provide an Id and Port you wish to be contacted on. Multicast-discovery
-//! then gives you a live updating chart of all the discovered Ids, Ports pairs and their adress.
+//! same network or (optionally) machine. You provide an `Id` and some `data` you want to share.
+//! Usually this is a port your service uses. This gives you a live updating chart
+//! of all the discovered `Ids`-`data` pairs and the corrosponding ip adresses.
+//!
+//! The chart can contain instances that are now down. It can not be used to check if a service is
+//! up.
 //!
 //! ## Usage
 //!
-//! Add a dependency on `multicast-discovery` in `Cargo.toml`:
+//! Add a dependency on `instance-chart` in `Cargo.toml`:
 //!
 //! ```toml
-//! multicast-discovery = "0.1"
+//! instance_chart = "0.1"
 //! ```
 //!
 //! Now add the following snippet somewhere in your codebase. Discovery will stop when you drop the
 //! maintain future.
 //!
 //! ```rust
-//!use multicast_discovery::{discovery, ChartBuilder};
-//!
-//!#[tokio::main]
-//!async fn main() {
-//!   let chart = ChartBuilder::new()
-//!       .with_id(1)
-//!       .with_service_port(8042)
-//!       .finish()
-//!       .unwrap();
-//!   let maintain = discovery::maintain(chart.clone());
-//!   let _ = tokio::spawn(maintain); // maintain task will run forever
+//! use instance_chart::{discovery, ChartBuilder};
+//! 
+//! #[tokio::main]
+//! async fn main() {
+//!    let chart = ChartBuilder::new()
+//!        .with_id(1)
+//!        .with_service_port(8042)
+//!        .finish()
+//!        .unwrap();
+//!    let maintain = discovery::maintain(chart.clone());
+//!    let _ = tokio::spawn(maintain); // maintain task will run forever
 //! }
 //! ```
 
@@ -34,7 +38,7 @@ mod chart;
 pub mod discovery;
 use std::io;
 
-pub use chart::{Chart, ChartBuilder, Notify, iter};
+pub use chart::{iter, Chart, ChartBuilder, Notify};
 type Id = u64;
 
 #[derive(thiserror::Error, Debug)]
@@ -49,11 +53,10 @@ pub enum Error {
     SetMulticast(io::Error),
     #[error("Error not set NonBlocking flag on the socket")]
     SetNonBlocking(io::Error),
-    #[error("Error binding to socket")]
+    #[error("Error binding to socket, you might want to try another discovery port or enable local_discovery")]
     Bind(io::Error),
     #[error("Error joining multicast network")]
     JoinMulticast(io::Error),
     #[error("Error transforming to async socket")]
     ToTokio(io::Error),
 }
-

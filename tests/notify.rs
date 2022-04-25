@@ -1,5 +1,5 @@
 use futures::future::select_all;
-use multicast_discovery::{discovery, ChartBuilder};
+use instance_chart::{discovery, ChartBuilder};
 use std::net::SocketAddr;
 use std::collections::HashSet;
 use std::net::UdpSocket;
@@ -8,7 +8,7 @@ fn setup_tracing() {
     use tracing_subscriber::{filter, prelude::*};
 
     let filter = filter::EnvFilter::builder()
-        .parse("info,multicast_discovery=debug")
+        .parse("info,instance_chart=debug")
         .unwrap();
 
     let fmt = tracing_subscriber::fmt::layer().pretty().with_test_writer();

@@ -1,4 +1,4 @@
-use multicast_discovery::{ChartBuilder, discovery};
+use instance_chart::{ChartBuilder, discovery};
 use std::env;
 use std::net::TcpListener;
 use tracing::info;
@@ -9,7 +9,7 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let filter = EnvFilter::from_default_env(); // use: RUST_LOG=info,multicast_discovery=debug
+    let filter = EnvFilter::from_default_env(); // use: RUST_LOG=info,instance_chart=debug
     let fmt_layer = fmt::layer().with_target(false).pretty();
 
     tracing_subscriber::registry()

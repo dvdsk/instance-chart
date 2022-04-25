@@ -1,12 +1,12 @@
 [package]
-name = "multicast-discovery"
+name = "instance-chart"
 version = "0.1.0"
 edition = "2021"
 authors = ["David Kleingeld"]
 readme = "README.md"
-repository = "https://github.com/dvdsk/multicast-discovery"
+repository = "https://github.com/dvdsk/instance-chart"
 license = "MIT"
-keywords = ["multicast", "discovery", "mdns"]
+keywords = ["multicast", "discovery", "mdns", "peers"]
 categories = ["network-programming"]
 
 [badges]

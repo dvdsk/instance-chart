@@ -185,7 +185,7 @@ impl ChartBuilder<1, Yes, No, No> {
     ///
     /// example:
     /// ```rust
-    ///use multicast_discovery::{discovery, ChartBuilder};
+    ///use instance_chart::{discovery, ChartBuilder};
     ///use serde::{Serialize, Deserialize};
     ///use std::time::Duration;
     ///
@@ -234,7 +234,7 @@ impl ChartBuilder<1, Yes, Yes, No> {
     ///
     /// example:
     /// ```rust
-    ///use multicast_discovery::{discovery, ChartBuilder};
+    ///use instance_chart::{discovery, ChartBuilder};
     ///use std::time::Duration;
     ///
     ///#[tokio::main]
@@ -277,7 +277,7 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     ///
     /// example:
     /// ```rust
-    ///use multicast_discovery::{discovery, ChartBuilder};
+    ///use instance_chart::{discovery, ChartBuilder};
     ///use std::time::Duration;
     ///
     ///#[tokio::main]
