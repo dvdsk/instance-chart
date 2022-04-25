@@ -8,6 +8,7 @@ use tokio::sync::broadcast::error::RecvError;
 
 /// Wait for notifications of new discoveries, buffering up to 16 discoveries, created using
 /// [Chart::notify()](crate::Chart::notify).
+#[derive(Debug)]
 pub struct Notify<const N: usize, T: Debug + Clone>(pub(super) broadcast::Receiver<(Id, Entry<[T; N]>)>);
 
 impl<T: Debug + Clone> Notify<1, T> {

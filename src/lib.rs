@@ -20,17 +20,18 @@
 //! maintain future.
 //!
 //! ```rust
+//! use std::error::Error;
 //! use instance_chart::{discovery, ChartBuilder};
 //! 
 //! #[tokio::main]
-//! async fn main() {
+//! async fn main() -> Result<(), Box<dyn Error>> {
 //!    let chart = ChartBuilder::new()
 //!        .with_id(1)
 //!        .with_service_port(8042)
-//!        .finish()
-//!        .unwrap();
+//!        .finish()?;
 //!    let maintain = discovery::maintain(chart.clone());
 //!    let _ = tokio::spawn(maintain); // maintain task will run forever
+//!    Ok(())
 //! }
 //! ```
 

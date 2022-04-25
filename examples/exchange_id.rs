@@ -1,5 +1,6 @@
 use instance_chart::{ChartBuilder, discovery};
 use std::env;
+use std::error::Error;
 use std::net::TcpListener;
 use tracing::info;
 
@@ -8,7 +9,7 @@ use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main(flavor = "current_thread")]
-async fn main() {
+async fn main() -> Result<(), Box<dyn Error>> {
     let filter = EnvFilter::from_default_env(); // use: RUST_LOG=info,instance_chart=debug
     let fmt_layer = fmt::layer().with_target(false).pretty();
 
@@ -29,7 +30,7 @@ async fn main() {
         .parse()
         .expect("pass id as u64");
 
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0")?;
     let port = listener.local_addr().unwrap().port();
     assert_ne!(port, 0);
 
@@ -44,4 +45,5 @@ async fn main() {
 
     discovery::found_everyone(&chart, cluster_size).await;
     info!("discovery complete: {chart:?}");
+    Ok(())
 }

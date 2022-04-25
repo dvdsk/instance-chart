@@ -187,13 +187,14 @@ impl ChartBuilder<1, Yes, No, No> {
     /// ```rust
     ///use instance_chart::{discovery, ChartBuilder};
     ///use serde::{Serialize, Deserialize};
+    ///use std::error::Error;
     ///use std::time::Duration;
     ///
     ///#[derive(Debug, Clone, Serialize, Deserialize)]
     ///struct Msg(u32);
     ///
     ///#[tokio::main]
-    ///async fn main() {
+    ///async fn main() -> Result<(), Box<dyn Error>> {
     ///   let msg = Msg(0);
     ///   let chart = ChartBuilder::new()
     ///       .with_id(1)
@@ -203,10 +204,10 @@ impl ChartBuilder<1, Yes, No, No> {
     ///           Duration::from_millis(10),
     ///           Duration::from_secs(10),
     ///           Duration::from_secs(60))
-    ///       .custom_msg(msg)
-    ///       .unwrap();
+    ///       .custom_msg(msg)?;
     ///   let maintain = discovery::maintain(chart.clone());
     ///   let _ = tokio::spawn(maintain); // maintain task will run forever
+    ///   Ok(())
     /// }
     /// ```
     /// # Errors
@@ -234,11 +235,12 @@ impl ChartBuilder<1, Yes, Yes, No> {
     ///
     /// example:
     /// ```rust
+    ///use std::error::Error;
     ///use instance_chart::{discovery, ChartBuilder};
     ///use std::time::Duration;
     ///
     ///#[tokio::main]
-    ///async fn main() {
+    ///async fn main() -> Result<(), Box<dyn Error>> {
     ///   let chart = ChartBuilder::new()
     ///       .with_id(1)
     ///       .with_service_port(8042)
@@ -248,10 +250,10 @@ impl ChartBuilder<1, Yes, Yes, No> {
     ///           Duration::from_millis(10),
     ///           Duration::from_secs(10),
     ///           Duration::from_secs(60))
-    ///       .finish()
-    ///       .unwrap();
+    ///       .finish()?;
     ///   let maintain = discovery::maintain(chart.clone());
     ///   let _ = tokio::spawn(maintain); // maintain task will run forever
+    ///   Ok(())
     /// }
     /// ```
     /// # Errors
@@ -277,11 +279,12 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     ///
     /// example:
     /// ```rust
+    ///use std::error::Error;
     ///use instance_chart::{discovery, ChartBuilder};
     ///use std::time::Duration;
     ///
     ///#[tokio::main]
-    ///async fn main() {
+    ///async fn main() -> Result<(), Box<dyn Error>> {
     ///   let chart = ChartBuilder::new()
     ///       .with_id(1)
     ///       .with_service_ports([8042,9042])
@@ -291,10 +294,10 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     ///           Duration::from_millis(10),
     ///           Duration::from_secs(10),
     ///           Duration::from_secs(60))
-    ///       .finish()
-    ///       .unwrap();
+    ///       .finish()?;
     ///   let maintain = discovery::maintain(chart.clone());
     ///   let _ = tokio::spawn(maintain); // maintain task will run forever
+    ///   Ok(())
     /// }
     /// ```
     /// # Errors

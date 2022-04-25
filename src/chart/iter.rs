@@ -1,3 +1,4 @@
+use std::fmt;
 use std::net::SocketAddr;
 
 use super::builder::Port;
@@ -20,6 +21,39 @@ impl<const N: usize> Chart<N, Port> {
 pub struct IterAddrLists<'a, const N: usize> {
     inner: dashmap::iter::Iter<'a, Id, Entry<[u16; N]>>,
 }
+
+macro_rules! fmt {
+    ($iter_struct: ident) => {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            let inner = self.inner.clone();
+            let clone = $iter_struct { inner };
+            writeln!(f, concat!(stringify!($iter_struct), "("))?;
+            f.debug_list().entries(clone).finish()?;
+            writeln!(f, "")?;
+            writeln!(f, ")")
+        }
+    };
+}
+
+impl<'a> fmt::Debug for IterAddr<'a> {
+    fmt!(IterAddr);
+}
+
+impl<'a, const N: usize> fmt::Debug for IterAddrLists<'a, N> {
+    fmt!(IterAddrLists);
+}
+
+impl<'a, const N: usize, const IDX: usize> fmt::Debug for IterNthAddr<'a, N, IDX> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let inner = self.inner.clone();
+        let clone = IterNthAddr::<N, IDX> { inner };
+        writeln!(f, "IterNthAddr(")?;
+        f.debug_list().entries(clone).finish()?;
+        writeln!(f, "")?;
+        writeln!(f, ")")
+    }
+}
+
 
 impl<'a, const N: usize> Iterator for IterAddrLists<'a, N> {
     type Item = [SocketAddr; N];
@@ -157,7 +191,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn iter_n_ports() {
+    async fn iter_addr_lists() {
         let chart = Chart::test(entry_3ports).await;
         let iter: HashSet<_> = chart.iter_addr_lists().collect();
         let correct: HashSet<_> = (1..10)
@@ -178,5 +212,19 @@ mod tests {
             .map(SocketAddr::from)
             .collect();
         assert_eq!(iter, correct)
+    }
+
+    mod fmt {
+        use super::*;
+
+        #[tokio::test]
+        async fn iter_addr_lists() {
+            let chart = Chart::test(entry_3ports).await;
+            let mut iter = chart.iter_addr_lists();
+            dbg!(iter.next());
+            let debug = format!("{iter:?}");
+            let correct = "";
+            assert_eq!(debug, correct);
+        }
     }
 }
