@@ -1,73 +1,61 @@
 use futures::StreamExt;
-use instance_chart::{discovery, ChartBuilder};
-use std::error::Error;
-use std::time::Duration;
 use indicatif::ProgressBar;
-
-fn setup_tracing() {
-    use tracing_subscriber::{filter, prelude::*};
-
-    let filter = filter::EnvFilter::builder()
-        .parse("info,instance_chart=debug")
-        .unwrap();
-
-    let fmt = tracing_subscriber::fmt::layer().pretty().with_test_writer();
-
-    let _ignore_err = tracing_subscriber::registry()
-        .with(filter)
-        .with(fmt)
-        .try_init();
-}
+use instance_chart::{discovery, ChartBuilder};
+use std::time::Duration;
 
 #[tokio::main]
 async fn main() {
-    setup_tracing();
-
     let jobs: Vec<_> = (1024..10_000u16)
         .into_iter()
         .map(port_can_multicast)
         .collect();
 
     let mut ok = Vec::new();
+    let mut bad = Vec::new();
     let pb = ProgressBar::new(jobs.len() as u64);
     let mut jobs = futures::stream::iter(jobs).buffer_unordered(400);
     while let Some(res) = jobs.next().await {
         pb.inc(1);
-        if let Some(port) = res {
-            pb.println(format!("found multicast capable port: {}", port));
-            ok.push(port)
+        match res {
+            Ok(port) => {
+                ok.push(port)
+            }
+            Err(port) => bad.push(port),
         }
     }
     pb.finish();
-    println!("ports that support multicast: {ok:?}");
+    if ok.len() < bad.len() {
+        println!("ports that can be used: {ok:?}");
+    } else {
+        println!("ports that can not be used: {bad:?}");
+    }
 }
 
-async fn port_can_multicast(port: u16) -> Option<u16> {
+async fn port_can_multicast(port: u16) -> Result<u16, u16> {
     let a = node(1, 2, port);
     let b = node(2, 2, port);
     let timeout = tokio::time::sleep(Duration::from_millis(1000));
 
     tokio::select! {
-        res = a => res.ok().map(|()| port),
-        res = b => res.ok().map(|()| port),
-        _ = timeout => {
-            None
-        }
+        res = a => res.map_err(|_| port).map(|()| port),
+        res = b => res.map_err(|_| port).map(|()| port),
+        _ = timeout => Err(port),
     }
 }
 
-async fn node(id: u64, cluster_size: u16, port: u16) -> Result<(), Box<dyn Error>>{
+async fn node(id: u64, cluster_size: u16, port: u16) -> Result<(), ()> {
     let chart = ChartBuilder::new()
         .with_id(id)
         .with_service_port(42)
         .with_discovery_port(port)
         .local_discovery(true)
-        .finish()?;
+        .finish()
+        .map_err(|_| ())?;
     let maintain = discovery::maintain(chart.clone());
     let discover = discovery::found_everyone(&chart, cluster_size);
 
-    tokio::select!{
-        _ = maintain => unreachable!(), 
+    tokio::select! {
+        _ = maintain => unreachable!(),
         _ = discover => Ok(()),
     }
 }
