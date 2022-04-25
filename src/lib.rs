@@ -8,11 +8,6 @@
 //! The chart can contain instances that are now down. It can not be used to check if a service is
 //! up.
 //!
-//! ## Issues
-//! We use UDP multicasts to discover other entries. On most systems only a few ports do not have
-//! multicast blocked by firewall. If things are not working you can try setting another port for
-//! discovery using: [ChartBuilder::with_discovery_port()].
-//!
 //! ## Usage
 //!
 //! Add a dependency on `instance-chart` in `Cargo.toml`:

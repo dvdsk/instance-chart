@@ -34,9 +34,6 @@ where
     let f2 = util::spawn(broadcast_periodically(chart, Duration::from_secs(10)));
     f1.await.accept_err_with(JoinError::is_cancelled).unwrap();
     f2.await.accept_err_with(JoinError::is_cancelled).unwrap();
-    // TODO these handles do not abort the tasks when the maintain future is dropped
-    // make sure they do! (this is causing the too many open files error in the check ports
-    // example)
 }
 
 /// Block until `full_size` nodes have been found.

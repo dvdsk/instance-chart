@@ -82,6 +82,8 @@ where
     PortsSet: ToAssign,
 {
     /// Set the `id` for this node, the `id` is the key for this node in the chart
+    /// # Note
+    /// Always needed, you can not build without an `id` set. The `id` must be __unique__
     #[must_use]
     pub fn with_id(self, id: Id) -> ChartBuilder<N, Yes, PortSet, PortsSet> {
         ChartBuilder {
@@ -99,6 +101,10 @@ where
     }
     /// Set a `port` for use by your application. This will appear to the other
     /// nodes in the Chart.
+    /// # Note
+    /// You need to use this or [with_service_ports](Self::with_service_ports) if 
+    /// building with [finish()](Self::finish). Cant be used when bulding with
+    /// [custom_msg](Self::custom_msg).
     #[must_use]
     pub fn with_service_port(self, port: u16) -> ChartBuilder<N, IdSet, Yes, No> {
         ChartBuilder {
@@ -116,6 +122,10 @@ where
     }
     /// Set mutiple `ports` for use by your application. This will appear to the other
     /// nodes in the Chart.
+    /// # Note
+    /// You need to use this or [with_service_port](Self::with_service_port) if 
+    /// building with [finish()](Self::finish). Cant be used when bulding with
+    /// [custom_msg](Self::custom_msg).
     #[must_use]
     pub fn with_service_ports(self, ports: [u16; N]) -> ChartBuilder<N, IdSet, No, Yes> {
         ChartBuilder {
@@ -131,14 +141,14 @@ where
             ports_set: PhantomData {},
         }
     }
-    /// _\[optional\]_ set a custom header number. The header is used to identify your application's chart
+    /// set a custom header number. The header is used to identify your application's chart
     /// from others multicast traffic when deployed your should set this to a [random](https://www.random.org) number.
     #[must_use]
     pub fn with_header(mut self, header: u64) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.header = header;
         self
     }
-    /// _\[optional\]_ set custom port for discovery. With [local discovery] enabled this port needs to be
+    /// set custom port for discovery. With [local discovery] enabled this port needs to be
     /// free and unused on all nodes it is not free the multicast traffic caused by this library
     /// might corrupt network data of other applications. The default port is 8080.
     /// # Warning
@@ -148,7 +158,7 @@ where
         self.discovery_port = port;
         self
     }
-    /// _\[optional\]_ set duration between discovery broadcasts, decreases linearly from `max` to `min`
+    /// set duration between discovery broadcasts, decreases linearly from `max` to `min`
     /// over `rampdown` period.
     /// # Panics
     /// panics if min is larger then max
@@ -168,17 +178,14 @@ where
     }
 
     #[must_use]
-    /// _\[optional\]_ set whether discovery is enabled within the same host. Defaults to false.
+    /// set whether discovery is enabled within the same host. Defaults to false.
     /// 
-    /// # Note 
-    /// Many ports do not work for multicast, use the example check_ports to find out which work on
-    /// your machine.
-    ///
     /// # Warning
-    /// When this is enabled you will not be warned if the `discovery port` is in use by another application.
-    /// Any applicatin using the discovery port will probably have its network traffic corrupted.
-    /// Even if local_discovery is set to true ChartBuilder can fail if the `discovery port` is
-    /// bound to a multicast adress without `SO_REUSEADDR` set.
+    /// When this is enabled you might not be warned if the `discovery port` is in use by another application. 
+    /// The other application will recieve network traffic from this crate. This might lead to
+    /// corruption in the application if it can not handle this.
+    /// ChartBuilder will still fail if the `discovery port` is already bound to a multicast adress 
+    /// without `SO_REUSEADDR` set.
     pub fn local_discovery(
         mut self,
         is_enabled: bool,
@@ -192,7 +199,10 @@ impl ChartBuilder<1, Yes, No, No> {
     /// build a chart with a custom msg instead of a service port. The message can
     /// be any struct that implements `Debug`, `Clone`, `serde::Serialize` and `serde::Deserialize`
     ///
-    /// example:
+    /// # Errors
+    /// This errors if the discovery port could not be opened. see: [Self::with_discovery_port].
+    ///
+    /// # Example
     /// ```rust
     ///use instance_chart::{discovery, ChartBuilder};
     ///use serde::{Serialize, Deserialize};
@@ -219,8 +229,6 @@ impl ChartBuilder<1, Yes, No, No> {
     ///   Ok(())
     /// }
     /// ```
-    /// # Errors
-    /// This errors if the discovery port could not be opened.
     #[allow(clippy::missing_panics_doc)] // with generic IdSet and PortSet set service_id must be set
     pub fn custom_msg<Msg>(self, msg: Msg) -> Result<Chart<1, Msg>, Error>
     where
@@ -242,7 +250,10 @@ impl ChartBuilder<1, Yes, No, No> {
 impl ChartBuilder<1, Yes, Yes, No> {
     /// build a chart that has a single service ports set
     ///
-    /// example:
+    /// # Errors
+    /// This errors if the discovery port could not be opened. see: [Self::with_discovery_port].
+    ///
+    /// # Example
     /// ```rust
     ///use std::error::Error;
     ///use instance_chart::{discovery, ChartBuilder};
@@ -265,8 +276,7 @@ impl ChartBuilder<1, Yes, Yes, No> {
     ///   Ok(())
     /// }
     /// ```
-    /// # Errors
-    /// This errors if the discovery port could not be opened.
+
     // with generic IdSet, PortSet set service_id and service_port are always Some
     #[allow(clippy::missing_panics_doc)]
     pub fn finish(self) -> Result<Chart<1, Port>, Error> {
@@ -286,7 +296,10 @@ impl ChartBuilder<1, Yes, Yes, No> {
 impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     /// build a chart that has a multiple service ports set
     ///
-    /// example:
+    /// # Errors
+    /// This errors if the discovery port could not be opened. see: [Self::with_discovery_port].
+    ///
+    /// # Example
     /// ```rust
     ///use std::error::Error;
     ///use instance_chart::{discovery, ChartBuilder};
@@ -309,8 +322,7 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     ///   Ok(())
     /// }
     /// ```
-    /// # Errors
-    /// This errors if the discovery port could not be opened.
+
     // with generic IdSet, PortSets set service_id and service_ports are always Some
     #[allow(clippy::missing_panics_doc)]
     pub fn finish(self) -> Result<Chart<N, Port>, Error> {
