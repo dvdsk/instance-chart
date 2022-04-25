@@ -22,7 +22,7 @@ impl<T, E> AcceptErr<T, E> for Result<T, E> {
     }
 }
 
-/// This drives the chart discovery. You can drop the future but the chart
+/// This drives the chart discovery. You can drop the future but then the chart
 /// will no longer be updated.
 #[tracing::instrument]
 pub async fn maintain<'de, const N: usize, T>(chart: Chart<N, T>) 
@@ -44,7 +44,7 @@ where
 {
     assert!(full_size > 2, "minimal cluster size is 3");
 
-    let mut node_discoverd = chart.notify().await;
+    let mut node_discoverd = chart.notify();
     while chart.size() < full_size as usize {
         node_discoverd.recv().await.unwrap();
     }
@@ -62,9 +62,10 @@ where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned
 {
     assert!(full_size > 2, "minimal cluster size is 3");
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let cluster_majority = (f32::from(full_size) * 0.5).ceil() as usize;
 
-    let mut node_discoverd = chart.notify().await;
+    let mut node_discoverd = chart.notify();
     while chart.size() < cluster_majority {
         node_discoverd.recv().await.unwrap();
     }

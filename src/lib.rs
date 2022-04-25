@@ -34,7 +34,7 @@ mod chart;
 pub mod discovery;
 use std::io;
 
-pub use chart::{Chart, ChartBuilder};
+pub use chart::{Chart, ChartBuilder, Notify, iter};
 type Id = u64;
 
 #[derive(thiserror::Error, Debug)]

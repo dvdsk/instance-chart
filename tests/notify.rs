@@ -1,3 +1,4 @@
+use futures::future::select_all;
 use multicast_discovery::{discovery, ChartBuilder};
 use std::net::SocketAddr;
 use std::collections::HashSet;
@@ -27,9 +28,8 @@ async fn test_notify() {
         .map(|id| tokio::spawn(node(id.into(), cluster_size)))
         .collect();
 
-    for h in handles {
-        h.await.unwrap();
-    }
+    // in the future use Tokio::JoinSet
+    select_all(handles).await.0.unwrap();
 }
 
 async fn node(id: u64, cluster_size: u16) {
@@ -40,13 +40,14 @@ async fn node(id: u64, cluster_size: u16) {
     let chart = ChartBuilder::new()
         .with_id(id)
         .with_service_port(port)
+        .local_discovery(true)
         .finish()
         .unwrap();
     let maintain = discovery::maintain(chart.clone());
     let _ = tokio::spawn(maintain);
 
     if id == 0 {
-        let mut new = chart.notify().await;
+        let mut new = chart.notify();
         let mut discoverd: HashSet<_> = chart.iter_addr().into_iter().collect();
 
         while discoverd.len() + 1 < cluster_size as usize {

@@ -18,14 +18,15 @@ use interval::Interval;
 use tracing::trace;
 
 mod notify;
-use notify::Notify;
+pub use notify::Notify;
 
 use crate::Id;
 mod builder;
 use builder::Port;
+
 pub use builder::ChartBuilder;
 
-mod iter;
+pub mod iter;
 
 use self::interval::Until;
 
@@ -40,12 +41,18 @@ where
     msg: [T; N],
 }
 
+/// A chart entry representing a discovered node. The msg is an array of 
+/// ports or a custom struct if you used [`custom_msg`](ChartBuilder::custom_msg()).
+/// 
+/// You probably do not want to use one of the [iterator methods](iter) instead
 #[derive(Debug, Clone)]
 pub struct Entry<Msg: Debug + Clone> {
     pub ip: IpAddr,
     pub msg: Msg,
 }
 
+/// The chart keeping track of the discoverd nodes. That a node appears in the 
+/// chart is no guarentee that it is reachable at this moment.
 #[derive(Debug, Clone)]
 pub struct Chart<const N: usize, T: Debug + Clone + Serialize> {
     header: u64,
@@ -86,6 +93,7 @@ impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
     }
 }
 
+/// The array of ports set for this chart instance, set in `ChartBuilder::with_service_ports`.
 impl<const N: usize> Chart<N, Port> {
     #[must_use]
     pub fn our_service_ports(&self) -> &[u16] {
@@ -93,13 +101,7 @@ impl<const N: usize> Chart<N, Port> {
     }
 }
 
-impl<T: Debug + Clone + Serialize> Chart<1, T> {
-    #[must_use]
-    pub fn our_msg(&self) -> &T {
-        &self.msg[0]
-    }
-}
-
+/// The port set for this chart instance, set in `ChartBuilder::with_service_port`.
 impl Chart<1, Port> {
     #[must_use]
     pub fn our_service_port(&self) -> u16 {
@@ -107,27 +109,36 @@ impl Chart<1, Port> {
     }
 }
 
+/// The msg struct for this chart instance, set in `ChartBuilder::custom_msg`.
+impl<T: Debug + Clone + Serialize> Chart<1, T> {
+    #[must_use]
+    pub fn our_msg(&self) -> &T {
+        &self.msg[0]
+    }
+}
+
 impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T> {
-    pub async fn notify(&self) -> Notify<N, T> {
+    /// Wait for new discoveries. Use one of the methods on the [notify object](notify::Notify)
+    /// to _await_ a new discovery and get the data.
+    #[must_use]
+    pub fn notify(&self) -> Notify<N, T> {
         Notify(self.broadcast.subscribe())
     }
 
-    #[must_use]
-    pub fn entries(&self) -> Vec<Entry<[T; N]>> {
-        self.map.iter().map(|m| m.value().clone()).collect()
-    }
-
-    /// members discoverd including self
+    /// number of instances discoverd including self
     #[must_use]
     pub fn size(&self) -> usize {
         self.map.len() + 1
     }
 
+    /// The id set for this chart instance
     #[must_use]
     pub fn our_id(&self) -> u64 {
         self.service_id
     }
 
+    /// The port this instance is using for discovery
+    #[allow(clippy::missing_panics_doc)] // socket is set during building
     #[must_use]
     pub fn discovery_port(&self) -> u16 {
         self.sock.local_addr().unwrap().port()
@@ -156,7 +167,7 @@ impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T
 }
 
 #[tracing::instrument]
-pub async fn handle_incoming<const N: usize, T>(mut chart: Chart<N, T>)
+pub(crate) async fn handle_incoming<const N: usize, T>(mut chart: Chart<N, T>)
 where
     T: Debug + Clone + Serialize + DeserializeOwned,
 {
@@ -176,7 +187,7 @@ where
 }
 
 #[tracing::instrument]
-pub async fn broadcast_periodically<const N: usize, T>(mut chart: Chart<N, T>, period: Duration)
+pub(crate) async fn broadcast_periodically<const N: usize, T>(mut chart: Chart<N, T>, period: Duration)
 where
     T: Debug + Serialize + DeserializeOwned + Clone,
 {
