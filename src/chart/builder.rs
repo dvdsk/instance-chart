@@ -140,7 +140,9 @@ where
     }
     /// _\[optional\]_ set custom port for discovery. With [local discovery] enabled this port needs to be
     /// free and unused on all nodes it is not free the multicast traffic caused by this library
-    /// might corrupt network data of other applications.
+    /// might corrupt network data of other applications. The default port is 8080.
+    /// # Warning
+    /// Not all ports seem to pass multicast traffic, you might need to experiment a bit.
     #[must_use]
     pub fn with_discovery_port(mut self, port: u16) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.discovery_port = port;
@@ -335,6 +337,7 @@ fn open_socket(port: u16, local_discovery: bool) -> Result<UdpSocket, Error> {
     }
     sock.set_broadcast(true).map_err(SetBroadcast)?; // enable udp broadcasting
     sock.set_multicast_loop_v4(true).map_err(SetMulticast)?; // send broadcast to self
+    sock.set_ttl(4).map_err(SetTTL)?; // deliver to other subnetworks
 
     let address = SocketAddr::from((interface, port));
     let address = SockAddr::from(address);

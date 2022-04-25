@@ -42,8 +42,6 @@ pub async fn found_everyone<const N:usize, T>(chart: &Chart<N, T>, full_size: u1
 where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned
 {
-    assert!(full_size > 2, "minimal cluster size is 3");
-
     let mut node_discoverd = chart.notify();
     while chart.size() < full_size as usize {
         node_discoverd.recv().await.unwrap();
@@ -61,7 +59,6 @@ pub async fn found_majority<const N:usize, T>(chart: &Chart<N,T>, full_size: u16
 where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned
 {
-    assert!(full_size > 2, "minimal cluster size is 3");
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let cluster_majority = (f32::from(full_size) * 0.5).ceil() as usize;
 

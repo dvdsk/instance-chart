@@ -8,6 +8,11 @@
 //! The chart can contain instances that are now down. It can not be used to check if a service is
 //! up.
 //!
+//! ## Issues
+//! We use UDP multicasts to discover other entries. On most systems only a few ports do not have
+//! multicast blocked by firewall. If things are not working you can try setting another port for
+//! discovery using: [ChartBuilder::with_discovery_port()].
+//!
 //! ## Usage
 //!
 //! Add a dependency on `instance-chart` in `Cargo.toml`:
@@ -39,7 +44,7 @@ mod chart;
 pub mod discovery;
 use std::io;
 
-pub use chart::{iter, Chart, ChartBuilder, Notify};
+pub use chart::{Chart, ChartBuilder, Notify};
 type Id = u64;
 
 #[derive(thiserror::Error, Debug)]
@@ -52,6 +57,8 @@ pub enum Error {
     SetBroadcast(io::Error),
     #[error("Error not set Multicast flag on the socket")]
     SetMulticast(io::Error),
+    #[error("Error not set TTL flag on the socket")]
+    SetTTL(io::Error),
     #[error("Error not set NonBlocking flag on the socket")]
     SetNonBlocking(io::Error),
     #[error("Error binding to socket, you might want to try another discovery port or enable local_discovery")]

@@ -27,7 +27,7 @@ use builder::Port;
 
 pub use builder::ChartBuilder;
 
-pub mod iter;
+pub mod to_vec;
 
 use self::interval::Until;
 
@@ -124,6 +124,47 @@ impl<T: Debug + Clone + Serialize> Chart<1, T> {
 impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T> {
     /// Wait for new discoveries. Use one of the methods on the [notify object](notify::Notify)
     /// to _await_ a new discovery and get the data.
+    /// # Examples 
+    /// ```rust
+    /// # use std::error::Error;
+    /// # use instance_chart::{discovery, ChartBuilder};
+    /// # 
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn Error>> {
+    /// # let full_size = 4u16;
+    /// # let handles: Vec<_> = (1..=full_size)
+    /// #     .into_iter()
+    /// #     .map(|id|
+    /// #         ChartBuilder::new()
+    /// #             .with_id(id.into())
+    /// #             .with_service_port(8042+id)
+    /// #             .with_discovery_port(8080)
+    /// #             .local_discovery(true)
+    /// #             .finish()
+    /// #             .unwrap()
+    /// #     )
+    /// #     .map(discovery::maintain)
+    /// #     .map(tokio::spawn)
+    /// #     .collect();
+    /// #
+    /// let chart = ChartBuilder::new()
+    ///     .with_id(1)
+    ///     .with_service_port(8042)
+    /// #   .with_discovery_port(8080)
+    ///     .local_discovery(true)
+    ///     .finish()?;
+    /// let mut node_discoverd = chart.notify();
+    /// let maintain = discovery::maintain(chart.clone());
+    /// let _ = tokio::spawn(maintain); // maintain task will run forever
+    ///
+    /// while chart.size() < full_size as usize {
+    ///     let new = node_discoverd.recv().await.unwrap();
+    ///     println!("discoverd new node: {:?}", new);
+    /// }
+    ///
+    /// #   Ok(())
+    /// # }
+    /// ```
     #[must_use]
     pub fn notify(&self) -> Notify<N, T> {
         Notify(self.broadcast.subscribe())
