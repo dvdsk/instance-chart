@@ -170,6 +170,10 @@ impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T
     }
 
     /// number of instances discoverd including self
+    
+    // lock poisoning happens only on crash in another thread, in which 
+    // case panicing here is expected
+    #[allow(clippy::missing_panics_doc)] 
     #[must_use]
     pub fn size(&self) -> usize {
         self.map.lock().unwrap().len() + 1
@@ -250,5 +254,5 @@ async fn broadcast(sock: &Arc<UdpSocket>, port: u16, msg: &[u8]) {
     let _len = sock
         .send_to(msg, (multiaddr, port))
         .await
-        .expect(&format!("broadcast failed with port: {port}"));
+        .unwrap_or_else(|e| panic!("broadcast failed with port: {port}, error: {e:?}"));
 }

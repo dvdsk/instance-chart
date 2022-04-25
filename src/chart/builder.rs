@@ -102,9 +102,9 @@ where
     /// Set a `port` for use by your application. This will appear to the other
     /// nodes in the Chart.
     /// # Note
-    /// You need to use this or [with_service_ports](Self::with_service_ports) if 
-    /// building with [finish()](Self::finish). Cant be used when bulding with
-    /// [custom_msg](Self::custom_msg).
+    /// You need to use this or [`with_service_ports`](Self::with_service_ports) if 
+    /// building with [`finish()`](Self::finish). Cant be used when bulding with
+    /// [`custom_msg`](Self::custom_msg).
     #[must_use]
     pub fn with_service_port(self, port: u16) -> ChartBuilder<N, IdSet, Yes, No> {
         ChartBuilder {
@@ -123,9 +123,9 @@ where
     /// Set mutiple `ports` for use by your application. This will appear to the other
     /// nodes in the Chart.
     /// # Note
-    /// You need to use this or [with_service_port](Self::with_service_port) if 
-    /// building with [finish()](Self::finish). Cant be used when bulding with
-    /// [custom_msg](Self::custom_msg).
+    /// You need to use this or [`with_service_port`](Self::with_service_port) if 
+    /// building with [`finish()`](Self::finish). Cant be used when bulding with
+    /// [`custom_msg`](Self::custom_msg).
     #[must_use]
     pub fn with_service_ports(self, ports: [u16; N]) -> ChartBuilder<N, IdSet, No, Yes> {
         ChartBuilder {
@@ -184,7 +184,7 @@ where
     /// When this is enabled you might not be warned if the `discovery port` is in use by another application. 
     /// The other application will recieve network traffic from this crate. This might lead to
     /// corruption in the application if it can not handle this.
-    /// ChartBuilder will still fail if the `discovery port` is already bound to a multicast adress 
+    /// `ChartBuilder` will still fail if the `discovery port` is already bound to a multicast adress 
     /// without `SO_REUSEADDR` set.
     pub fn local_discovery(
         mut self,
@@ -200,7 +200,7 @@ impl ChartBuilder<1, Yes, No, No> {
     /// be any struct that implements `Debug`, `Clone`, `serde::Serialize` and `serde::Deserialize`
     ///
     /// # Errors
-    /// This errors if the discovery port could not be opened. see: [Self::with_discovery_port].
+    /// This errors if the discovery port could not be opened. see: [`Self::with_discovery_port`].
     ///
     /// # Example
     /// ```rust
@@ -251,7 +251,7 @@ impl ChartBuilder<1, Yes, Yes, No> {
     /// build a chart that has a single service ports set
     ///
     /// # Errors
-    /// This errors if the discovery port could not be opened. see: [Self::with_discovery_port].
+    /// This errors if the discovery port could not be opened. see: [`Self::with_discovery_port`].
     ///
     /// # Example
     /// ```rust
@@ -297,7 +297,7 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     /// build a chart that has a multiple service ports set
     ///
     /// # Errors
-    /// This errors if the discovery port could not be opened. see: [Self::with_discovery_port].
+    /// This errors if the discovery port could not be opened. see: [`Self::with_discovery_port`].
     ///
     /// # Example
     /// ```rust

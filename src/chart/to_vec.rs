@@ -7,8 +7,8 @@ impl<const N: usize> Chart<N, Port> {
     /// # Note 
     /// - vector order is random
     /// - only availible for Chart configured with 
-    /// [ChartBuilder::with_service_ports](crate::ChartBuilder::with_service_ports) 
-    /// and build using [ChartBuilder::finish](crate::ChartBuilder::finish).
+    /// [`ChartBuilder::with_service_ports`](crate::ChartBuilder::with_service_ports) 
+    /// and build using [`ChartBuilder::finish`](crate::ChartBuilder::finish).
     /// ```rust
     /// # use std::error::Error;
     /// # use instance_chart::{discovery, ChartBuilder};
@@ -26,6 +26,10 @@ impl<const N: usize> Chart<N, Port> {
     /// #   Ok(())
     /// # }
     /// ```
+
+    // lock poisoning happens only on crash in another thread, in which 
+    // case panicing here is expected
+    #[allow(clippy::missing_panics_doc)] 
     #[must_use]
     pub fn addr_lists_vec(&self) -> Vec<[SocketAddr; N]> {
         self.map
@@ -45,8 +49,8 @@ impl<const N: usize> Chart<N, Port> {
     /// # Note 
     /// - vector order is random
     /// - only availible for Chart configured with 
-    /// [ChartBuilder::with_service_ports](crate::ChartBuilder::with_service_ports) 
-    /// and build using [ChartBuilder::finish](crate::ChartBuilder::finish).
+    /// [`ChartBuilder::with_service_ports`](crate::ChartBuilder::with_service_ports) 
+    /// and build using [`ChartBuilder::finish`](crate::ChartBuilder::finish).
     ///
     /// # Examples 
     /// ```rust
@@ -67,6 +71,10 @@ impl<const N: usize> Chart<N, Port> {
     /// #   Ok(())
     /// # }
     /// ```
+
+    // lock poisoning happens only on crash in another thread, in which 
+    // case panicing here is expected
+    #[allow(clippy::missing_panics_doc)] 
     #[must_use]
     pub fn nth_addr_vec<const IDX: usize>(&self) -> Vec<SocketAddr> {
         self.map
@@ -87,8 +95,8 @@ impl<'a> Chart<1, Port> {
     /// # Note 
     /// - vector order is random
     /// - only availible for Chart configured with 
-    /// [ChartBuilder::with_service_port](crate::ChartBuilder::with_service_port) 
-    /// and build using [ChartBuilder::finish](crate::ChartBuilder::finish).
+    /// [`ChartBuilder::with_service_port`](crate::ChartBuilder::with_service_port) 
+    /// and build using [`ChartBuilder::finish`](crate::ChartBuilder::finish).
     /// ```rust
     /// # use std::error::Error;
     /// # use instance_chart::{discovery, ChartBuilder};
@@ -106,6 +114,10 @@ impl<'a> Chart<1, Port> {
     /// #   Ok(())
     /// # }
     /// ```
+
+    // lock poisoning happens only on crash in another thread, in which 
+    // case panicing here is expected
+    #[allow(clippy::missing_panics_doc)] 
     #[must_use]
     pub fn addr_vec(&'a self) -> Vec<SocketAddr> {
         self.map
