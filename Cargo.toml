@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["David Kleingeld"]
 readme = "README.md"
+description = "Chart (discover) instances of your application on the same network and or machine"
 repository = "https://github.com/dvdsk/instance-chart"
 license = "MIT"
 keywords = ["multicast", "discovery", "mdns", "peers"]

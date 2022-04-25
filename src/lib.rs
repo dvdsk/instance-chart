@@ -1,4 +1,4 @@
-//! Provides data for other instances on the same machine/network
+//! Provides data about other instances on the same machine/network
 //!
 //! This crate provides a lightweight alternative to `mDNS`. It discovers other instances on the
 //! same network or (optionally) machine. You provide an `Id` and some `data` you want to share.
