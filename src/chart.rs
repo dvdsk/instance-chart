@@ -13,7 +13,6 @@ use serde_big_array::BigArray;
 use tokio::net::UdpSocket;
 use tokio::sync::broadcast;
 
-
 mod interval;
 use interval::Interval;
 use tracing::trace;
@@ -42,9 +41,9 @@ where
     msg: [T; N],
 }
 
-/// A chart entry representing a discovered node. The msg is an array of 
+/// A chart entry representing a discovered node. The msg is an array of
 /// ports or a custom struct if you used [`custom_msg`](ChartBuilder::custom_msg()).
-/// 
+///
 /// You probably do not want to use one of the [iterator methods](iter) instead
 #[derive(Debug, Clone)]
 pub struct Entry<Msg: Debug + Clone> {
@@ -52,7 +51,7 @@ pub struct Entry<Msg: Debug + Clone> {
     pub msg: Msg,
 }
 
-/// The chart keeping track of the discoverd nodes. That a node appears in the 
+/// The chart keeping track of the discoverd nodes. That a node appears in the
 /// chart is no guarentee that it is reachable at this moment.
 #[derive(Debug, Clone)]
 pub struct Chart<const N: usize, T: Debug + Clone + Serialize> {
@@ -124,11 +123,11 @@ impl<T: Debug + Clone + Serialize> Chart<1, T> {
 impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T> {
     /// Wait for new discoveries. Use one of the methods on the [notify object](notify::Notify)
     /// to _await_ a new discovery and get the data.
-    /// # Examples 
+    /// # Examples
     /// ```rust
     /// # use std::error::Error;
     /// # use instance_chart::{discovery, ChartBuilder};
-    /// # 
+    /// #
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn Error>> {
     /// # let full_size = 4u16;
@@ -232,19 +231,24 @@ where
 }
 
 #[tracing::instrument]
-pub(crate) async fn broadcast_periodically<const N: usize, T>(mut chart: Chart<N, T>, period: Duration)
-where
+pub(crate) async fn broadcast_periodically<const N: usize, T>(
+    mut chart: Chart<N, T>,
+    period: Duration,
+) where
     T: Debug + Serialize + DeserializeOwned + Clone,
 {
     loop {
         chart.interval.sleep_till_next().await;
         trace!("sending discovery msg");
-        broadcast(&chart.sock, &chart.discovery_buf()).await;
+        broadcast(&chart.sock, chart.discovery_port(), &chart.discovery_buf()).await;
     }
 }
 
 #[tracing::instrument]
-async fn broadcast(sock: &Arc<UdpSocket>, msg: &[u8]) {
+async fn broadcast(sock: &Arc<UdpSocket>, port: u16, msg: &[u8]) {
     let multiaddr = Ipv4Addr::from([224, 0, 0, 251]);
-    let _len = sock.send_to(msg, (multiaddr, 8080)).await.unwrap();
+    let _len = sock
+        .send_to(msg, (multiaddr, port))
+        .await
+        .expect(&format!("broadcast failed with port: {port}"));
 }
