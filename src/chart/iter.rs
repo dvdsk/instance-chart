@@ -1,25 +1,43 @@
-use std::fmt;
 use std::net::SocketAddr;
+use std::{fmt, vec};
 
 use super::builder::Port;
-use super::{Chart, Entry, Id};
+use super::{Chart, Entry};
+
+/// Iterator over arrays of SocketAddres, Can only be used with a chart build using [ChartBuilder::finish](crate::ChartBuilder::finish) and with
+/// [ChartBuilder::with_service_ports](crate::ChartBuilder::with_service_ports)
+#[allow(clippy::module_name_repetitions)]
+pub struct IterAddrLists<const N: usize> {
+    inner: vec::IntoIter<[SocketAddr; N]>,
+}
 
 impl<const N: usize> Chart<N, Port> {
     /// Returns an iterator over each discovered node's socketadresses.
     /// __note: iteration order is random__
     #[must_use]
-    pub fn iter_addr_lists(&self) -> IterAddrLists<'_, N> {
+    pub fn iter_addr_lists(&self) -> IterAddrLists<N> {
         IterAddrLists {
-            inner: self.map.iter(),
+            inner: self
+                .map
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(_, entry)| {
+                    let Entry { ip, msg: ports } = entry;
+                    ports.map(|p| SocketAddr::new(*ip, p))
+                })
+                .collect::<Vec<_>>()
+                .into_iter(),
         }
     }
 }
 
-/// Iterator over arrays of SocketAddres, Can only be used with a chart build using [ChartBuilder::finish](crate::ChartBuilder::finish) and with
-/// [ChartBuilder::with_service_ports](crate::ChartBuilder::with_service_ports)
-#[allow(clippy::module_name_repetitions)]
-pub struct IterAddrLists<'a, const N: usize> {
-    inner: dashmap::iter::Iter<'a, Id, Entry<[u16; N]>>,
+impl<const N: usize> Iterator for IterAddrLists<N> {
+    type Item = [SocketAddr; N];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
 }
 
 macro_rules! fmt {
@@ -35,34 +53,23 @@ macro_rules! fmt {
     };
 }
 
-impl<'a> fmt::Debug for IterAddr<'a> {
+impl fmt::Debug for IterAddr {
     fmt!(IterAddr);
 }
 
-impl<'a, const N: usize> fmt::Debug for IterAddrLists<'a, N> {
+impl<const N: usize> fmt::Debug for IterAddrLists<N> {
     fmt!(IterAddrLists);
 }
 
-impl<'a, const N: usize, const IDX: usize> fmt::Debug for IterNthAddr<'a, N, IDX> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let inner = self.inner.clone();
-        let clone = IterNthAddr::<N, IDX> { inner };
-        writeln!(f, "IterNthAddr(")?;
-        f.debug_list().entries(clone).finish()?;
-        writeln!(f, "")?;
-        writeln!(f, ")")
-    }
+impl fmt::Debug for IterNthAddr {
+    fmt!(IterNthAddr);
 }
 
-
-impl<'a, const N: usize> Iterator for IterAddrLists<'a, N> {
-    type Item = [SocketAddr; N];
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let value = self.inner.next()?;
-        let Entry { ip, msg: ports } = value.value();
-        Some(ports.map(|p| SocketAddr::new(*ip, p)))
-    }
+/// Iterator over the n-th SocketAddres for a Chart where each instance has
+/// multiple service-ports. Can only be used with a chart build using [ChartBuilder::custom_msg](crate::ChartBuilder::custom_msg)
+#[allow(clippy::module_name_repetitions)]
+pub struct IterNthAddr {
+    inner: vec::IntoIter<SocketAddr>,
 }
 
 impl<const N: usize> Chart<N, Port> {
@@ -70,28 +77,29 @@ impl<const N: usize> Chart<N, Port> {
     /// of each node.
     /// __note: iteration order is random__
     #[must_use]
-    pub fn iter_nth_addr<const IDX: usize>(&self) -> IterNthAddr<'_, N, IDX> {
+    pub fn iter_nth_addr<const IDX: usize>(&self) -> IterNthAddr {
         IterNthAddr {
-            inner: self.map.iter(),
+            inner: self
+                .map
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(_, entry)| {
+                    let Entry { ip, msg: ports } = entry;
+                    let port = ports[IDX];
+                    SocketAddr::new(*ip, port)
+                })
+                .collect::<Vec<_>>()
+                .into_iter(),
         }
     }
 }
 
-/// Iterator over the n-th SocketAddres for a Chart where each instance has
-/// multiple service-ports. Can only be used with a chart build using [ChartBuilder::custom_msg](crate::ChartBuilder::custom_msg)
-#[allow(clippy::module_name_repetitions)]
-pub struct IterNthAddr<'a, const N: usize, const IDX: usize> {
-    inner: dashmap::iter::Iter<'a, Id, Entry<[u16; N]>>,
-}
-
-impl<'a, const N: usize, const IDX: usize> Iterator for IterNthAddr<'a, N, IDX> {
+impl Iterator for IterNthAddr {
     type Item = SocketAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let value = self.inner.next()?;
-        let Entry { ip, msg: ports } = value.value();
-        let port = ports[IDX];
-        Some(SocketAddr::new(*ip, port))
+        self.inner.next()
     }
 }
 
@@ -99,29 +107,36 @@ impl<'a> Chart<1, Port> {
     /// Returns an iterator over each discoverd nodes's socketadress
     /// Note iteration order is random
     #[must_use]
-    pub fn iter_addr(&'a self) -> IterAddr<'a> {
+    pub fn iter_addr(&'a self) -> IterAddr {
         IterAddr {
-            inner: self.map.iter(),
+            inner: self
+                .map
+                .lock()
+                .unwrap()
+                .iter()
+                .map(|(_, entry)| {
+                    let Entry { ip, msg: [port] } = entry;
+                    SocketAddr::new(*ip, *port)
+                })
+                .collect::<Vec<_>>()
+                .into_iter(),
         }
     }
 }
 
-/// Iterator over SocketAddres. Can only be used with a chart build using 
-/// [ChartBuilder::finish](crate::ChartBuilder::finish) and with 
+/// Iterator over SocketAddres. Can only be used with a chart build using
+/// [ChartBuilder::finish](crate::ChartBuilder::finish) and with
 /// [ChartBuilder::with_service_port](crate::ChartBuilder::with_service_port)
 #[allow(clippy::module_name_repetitions)]
-pub struct IterAddr<'a> {
-    inner: dashmap::iter::Iter<'a, Id, Entry<[u16; 1]>>,
+pub struct IterAddr {
+    inner: vec::IntoIter<SocketAddr>,
 }
 
-impl<'a> Iterator for IterAddr<'a> {
+impl Iterator for IterAddr {
     type Item = SocketAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let value = self.inner.next()?;
-        let Entry { ip, msg: ports } = value.value();
-        let [port] = ports;
-        Some(SocketAddr::new(*ip, *port))
+        self.inner.next()
     }
 }
 
@@ -129,12 +144,11 @@ impl<'a> Iterator for IterAddr<'a> {
 mod tests {
     use crate::chart::{Entry, Interval};
     use crate::{Chart, Id};
-    use dashmap::DashMap;
     use serde::Serialize;
-    use std::collections::HashSet;
+    use std::collections::{HashSet, HashMap};
     use std::fmt::Debug;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use tokio::net::UdpSocket;
 
     impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
@@ -143,14 +157,14 @@ mod tests {
             F: FnMut(u8) -> (Id, Entry<[T; N]>) + Copy,
         {
             let msg = gen_kv(0).1.msg;
-            let map: DashMap<Id, Entry<_>> = (1..10).map(gen_kv).collect();
+            let map: HashMap<Id, Entry<_>> = (1..10).map(gen_kv).collect();
             Self {
                 header: 0,
                 service_id: 0,
                 msg,
                 sock: Arc::new(UdpSocket::bind("127.0.0.1:0").await.unwrap()),
                 interval: Interval::test(),
-                map: Arc::new(map),
+                map: Arc::new(Mutex::new(map)),
                 broadcast: tokio::sync::broadcast::channel(1).0,
             }
         }
@@ -221,10 +235,9 @@ mod tests {
         async fn iter_addr_lists() {
             let chart = Chart::test(entry_3ports).await;
             let mut iter = chart.iter_addr_lists();
-            dbg!(iter.next());
+            let item = format!("{:?}", iter.next());
             let debug = format!("{iter:?}");
-            let correct = "";
-            assert_eq!(debug, correct);
+            assert!(!debug.contains(&item));
         }
     }
 }

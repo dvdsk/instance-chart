@@ -18,7 +18,6 @@ maintenance = { status = "passively-maintained" }
 thiserror = "1"
 rand = {version = "0.8", features = ["small_rng"]}
 tokio = {version = "1", features=["time", "net", "macros", "tracing", "rt", "sync"]}
-dashmap = "5"
 tracing = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde-big-array = "0.4"

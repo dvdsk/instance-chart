@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::Error;
@@ -223,7 +224,7 @@ impl ChartBuilder<1, Yes, No, No> {
             service_id: self.service_id.unwrap(),
             msg: [msg],
             sock: Arc::new(sock),
-            map: Arc::new(dashmap::DashMap::new()),
+            map: Arc::new(Mutex::new(HashMap::new())),
             interval: self.rampdown.into(),
             broadcast: broadcast::channel(16).0,
         })
@@ -267,7 +268,7 @@ impl ChartBuilder<1, Yes, Yes, No> {
             service_id: self.service_id.unwrap(),
             msg: [self.service_port.unwrap()],
             sock: Arc::new(sock),
-            map: Arc::new(dashmap::DashMap::new()),
+            map: Arc::new(Mutex::new(HashMap::new())),
             interval: self.rampdown.into(),
             broadcast: broadcast::channel(16).0,
         })
@@ -311,7 +312,7 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
             service_id: self.service_id.unwrap(),
             msg: self.service_ports,
             sock: Arc::new(sock),
-            map: Arc::new(dashmap::DashMap::new()),
+            map: Arc::new(Mutex::new(HashMap::new())),
             interval: self.rampdown.into(),
             broadcast: broadcast::channel(16).0,
         })

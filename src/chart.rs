@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
@@ -60,13 +61,16 @@ pub struct Chart<const N: usize, T: Debug + Clone + Serialize> {
     msg: [T; N],
     sock: Arc<UdpSocket>,
     interval: Interval,
-    map: Arc<dashmap::DashMap<Id, Entry<[T; N]>>>,
+    map: Arc<std::sync::Mutex<HashMap<Id, Entry<[T; N]>>>>,
     broadcast: broadcast::Sender<(Id, Entry<[T; N]>)>,
 }
 
 impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
     fn insert(&self, id: Id, entry: Entry<[T; N]>) -> bool {
-        let old_key = self.map.insert(id, entry.clone());
+        let old_key = {
+            let mut map = self.map.lock().unwrap();
+            map.insert(id, entry.clone())
+        };
         if old_key.is_none() {
             // errors if there are no active recievers which is
             // the default and not a problem
@@ -128,7 +132,7 @@ impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T
     /// number of instances discoverd including self
     #[must_use]
     pub fn size(&self) -> usize {
-        self.map.len() + 1
+        self.map.lock().unwrap().len() + 1
     }
 
     /// The id set for this chart instance
