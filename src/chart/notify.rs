@@ -39,6 +39,20 @@ impl<const N: usize, T: Debug + Clone> Notify<N, T> {
         let (id, entry) = self.0.recv().await?;
         Ok((id, entry.ip, entry.msg))
     }
+
+    /// await the next discovered instance. Returns the id and nth custom messages for new node 
+    /// when it is discovered. 
+    /// # Note
+    /// Can only be called on a 
+    /// Notify for a chart created with [`ChartBuilder::custom_msg()`](crate::ChartBuilder::custom_msg) 
+    /// # Errors
+    /// If more the 16 discoveries have been made since this was called this returns
+    /// `RecvError::Lagged`
+    pub async fn recv_nth<const IDX:usize>(&mut self) ->Result<(Id, IpAddr, T), RecvError> {
+        let (id, ip, msg) = self.recv().await?;
+        let msg = msg.into_iter().nth(IDX).unwrap(); // cant move out of array
+        Ok((id, ip, msg))
+    }
 }
 
 impl Notify<1, u16> {
@@ -70,5 +84,19 @@ impl<const N: usize> Notify<N, u16> {
     pub async fn recv_addresses(&mut self) -> Result<(Id, [SocketAddr; N]), RecvError> {
         let (id, ip, ports) = self.recv().await?;
         Ok((id, ports.map(|p| SocketAddr::new(ip, p))))
+    }
+
+    /// await the next discovered instance. Buffers up to 16 discoveries. Returns the id 
+    /// and nth service adresses for new node when it is discovered. 
+    /// # Note 
+    /// Can only be called on a 
+    /// Notify for a chart created with [`ChartBuilder::finish()`](crate::ChartBuilder::finish) 
+    /// that had multiple service ports set.
+    /// # Errors
+    /// If more the 16 discoveries have been made since this was called this returns
+    /// `RecvError::Lagged`
+    pub async fn recv_nth_addr<const IDX:usize>(&mut self) ->Result<(Id, SocketAddr), RecvError> {
+        let (id, ip, ports) = self.recv().await?;
+        Ok((id, SocketAddr::new(ip, ports[IDX])))
     }
 }
