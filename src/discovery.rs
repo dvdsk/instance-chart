@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tracing::info;
 
-use crate::Chart;
+use crate::{Chart, util};
 use crate::chart::{handle_incoming, broadcast_periodically};
 
 trait AcceptErr<T, E> {
@@ -30,8 +30,8 @@ where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned + Sync + Send
 {
     use tokio::task::JoinError;
-    let f1 = tokio::spawn(handle_incoming(chart.clone()));
-    let f2 = tokio::spawn(broadcast_periodically(chart, Duration::from_secs(10)));
+    let f1 = util::spawn(handle_incoming(chart.clone()));
+    let f2 = util::spawn(broadcast_periodically(chart, Duration::from_secs(10)));
     f1.await.accept_err_with(JoinError::is_cancelled).unwrap();
     f2.await.accept_err_with(JoinError::is_cancelled).unwrap();
 }
@@ -42,8 +42,6 @@ pub async fn found_everyone<const N:usize, T>(chart: &Chart<N, T>, full_size: u1
 where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned
 {
-    assert!(full_size > 2, "minimal cluster size is 3");
-
     let mut node_discoverd = chart.notify();
     while chart.size() < full_size as usize {
         node_discoverd.recv().await.unwrap();
@@ -61,7 +59,6 @@ pub async fn found_majority<const N:usize, T>(chart: &Chart<N,T>, full_size: u16
 where
     T: 'static + Debug + Clone + Serialize + DeserializeOwned
 {
-    assert!(full_size > 2, "minimal cluster size is 3");
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let cluster_majority = (f32::from(full_size) * 0.5).ceil() as usize;
 

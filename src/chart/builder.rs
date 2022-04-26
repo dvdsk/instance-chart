@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::Error;
@@ -81,6 +82,8 @@ where
     PortsSet: ToAssign,
 {
     /// Set the `id` for this node, the `id` is the key for this node in the chart
+    /// # Note
+    /// Always needed, you can not build without an `id` set. The `id` must be __unique__
     #[must_use]
     pub fn with_id(self, id: Id) -> ChartBuilder<N, Yes, PortSet, PortsSet> {
         ChartBuilder {
@@ -98,6 +101,10 @@ where
     }
     /// Set a `port` for use by your application. This will appear to the other
     /// nodes in the Chart.
+    /// # Note
+    /// You need to use this or [`with_service_ports`](Self::with_service_ports) if 
+    /// building with [`finish()`](Self::finish). Cant be used when bulding with
+    /// [`custom_msg`](Self::custom_msg).
     #[must_use]
     pub fn with_service_port(self, port: u16) -> ChartBuilder<N, IdSet, Yes, No> {
         ChartBuilder {
@@ -115,6 +122,10 @@ where
     }
     /// Set mutiple `ports` for use by your application. This will appear to the other
     /// nodes in the Chart.
+    /// # Note
+    /// You need to use this or [`with_service_port`](Self::with_service_port) if 
+    /// building with [`finish()`](Self::finish). Cant be used when bulding with
+    /// [`custom_msg`](Self::custom_msg).
     #[must_use]
     pub fn with_service_ports(self, ports: [u16; N]) -> ChartBuilder<N, IdSet, No, Yes> {
         ChartBuilder {
@@ -130,22 +141,24 @@ where
             ports_set: PhantomData {},
         }
     }
-    /// _\[optional\]_ set a custom header number. The header is used to identify your application's chart
+    /// set a custom header number. The header is used to identify your application's chart
     /// from others multicast traffic when deployed your should set this to a [random](https://www.random.org) number.
     #[must_use]
     pub fn with_header(mut self, header: u64) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.header = header;
         self
     }
-    /// _\[optional\]_ set custom port for discovery. With [local discovery] enabled this port needs to be
+    /// set custom port for discovery. With [local discovery] enabled this port needs to be
     /// free and unused on all nodes it is not free the multicast traffic caused by this library
-    /// might corrupt network data of other applications.
+    /// might corrupt network data of other applications. The default port is 8080.
+    /// # Warning
+    /// Not all ports seem to pass multicast traffic, you might need to experiment a bit.
     #[must_use]
     pub fn with_discovery_port(mut self, port: u16) -> ChartBuilder<N, IdSet, PortSet, PortsSet> {
         self.discovery_port = port;
         self
     }
-    /// _\[optional\]_ set duration between discovery broadcasts, decreases linearly from `max` to `min`
+    /// set duration between discovery broadcasts, decreases linearly from `max` to `min`
     /// over `rampdown` period.
     /// # Panics
     /// panics if min is larger then max
@@ -165,11 +178,14 @@ where
     }
 
     #[must_use]
-    /// _\[optional\]_ set whether discovery is enabled within the same host. Defaults to false.
-    ///
+    /// set whether discovery is enabled within the same host. Defaults to false.
+    /// 
     /// # Warning
-    /// When this is enabled you will not be warned if the `discovery port` is in use by another application.
-    /// Any applicatin using the discovery port will probably have its network traffic corrupted .
+    /// When this is enabled you might not be warned if the `discovery port` is in use by another application. 
+    /// The other application will recieve network traffic from this crate. This might lead to
+    /// corruption in the application if it can not handle this.
+    /// `ChartBuilder` will still fail if the `discovery port` is already bound to a multicast adress 
+    /// without `SO_REUSEADDR` set.
     pub fn local_discovery(
         mut self,
         is_enabled: bool,
@@ -183,17 +199,21 @@ impl ChartBuilder<1, Yes, No, No> {
     /// build a chart with a custom msg instead of a service port. The message can
     /// be any struct that implements `Debug`, `Clone`, `serde::Serialize` and `serde::Deserialize`
     ///
-    /// example:
+    /// # Errors
+    /// This errors if the discovery port could not be opened. see: [`Self::with_discovery_port`].
+    ///
+    /// # Example
     /// ```rust
-    ///use multicast_discovery::{discovery, ChartBuilder};
+    ///use instance_chart::{discovery, ChartBuilder};
     ///use serde::{Serialize, Deserialize};
+    ///use std::error::Error;
     ///use std::time::Duration;
     ///
     ///#[derive(Debug, Clone, Serialize, Deserialize)]
     ///struct Msg(u32);
     ///
     ///#[tokio::main]
-    ///async fn main() {
+    ///async fn main() -> Result<(), Box<dyn Error>> {
     ///   let msg = Msg(0);
     ///   let chart = ChartBuilder::new()
     ///       .with_id(1)
@@ -203,14 +223,12 @@ impl ChartBuilder<1, Yes, No, No> {
     ///           Duration::from_millis(10),
     ///           Duration::from_secs(10),
     ///           Duration::from_secs(60))
-    ///       .custom_msg(msg)
-    ///       .unwrap();
+    ///       .custom_msg(msg)?;
     ///   let maintain = discovery::maintain(chart.clone());
     ///   let _ = tokio::spawn(maintain); // maintain task will run forever
+    ///   Ok(())
     /// }
     /// ```
-    /// # Errors
-    /// This errors if the discovery port could not be opened. 
     #[allow(clippy::missing_panics_doc)] // with generic IdSet and PortSet set service_id must be set
     pub fn custom_msg<Msg>(self, msg: Msg) -> Result<Chart<1, Msg>, Error>
     where
@@ -222,7 +240,7 @@ impl ChartBuilder<1, Yes, No, No> {
             service_id: self.service_id.unwrap(),
             msg: [msg],
             sock: Arc::new(sock),
-            map: Arc::new(dashmap::DashMap::new()),
+            map: Arc::new(Mutex::new(HashMap::new())),
             interval: self.rampdown.into(),
             broadcast: broadcast::channel(16).0,
         })
@@ -232,13 +250,17 @@ impl ChartBuilder<1, Yes, No, No> {
 impl ChartBuilder<1, Yes, Yes, No> {
     /// build a chart that has a single service ports set
     ///
-    /// example:
+    /// # Errors
+    /// This errors if the discovery port could not be opened. see: [`Self::with_discovery_port`].
+    ///
+    /// # Example
     /// ```rust
-    ///use multicast_discovery::{discovery, ChartBuilder};
+    ///use std::error::Error;
+    ///use instance_chart::{discovery, ChartBuilder};
     ///use std::time::Duration;
     ///
     ///#[tokio::main]
-    ///async fn main() {
+    ///async fn main() -> Result<(), Box<dyn Error>> {
     ///   let chart = ChartBuilder::new()
     ///       .with_id(1)
     ///       .with_service_port(8042)
@@ -248,14 +270,13 @@ impl ChartBuilder<1, Yes, Yes, No> {
     ///           Duration::from_millis(10),
     ///           Duration::from_secs(10),
     ///           Duration::from_secs(60))
-    ///       .finish()
-    ///       .unwrap();
+    ///       .finish()?;
     ///   let maintain = discovery::maintain(chart.clone());
     ///   let _ = tokio::spawn(maintain); // maintain task will run forever
+    ///   Ok(())
     /// }
     /// ```
-    /// # Errors
-    /// This errors if the discovery port could not be opened. 
+
     // with generic IdSet, PortSet set service_id and service_port are always Some
     #[allow(clippy::missing_panics_doc)]
     pub fn finish(self) -> Result<Chart<1, Port>, Error> {
@@ -265,7 +286,7 @@ impl ChartBuilder<1, Yes, Yes, No> {
             service_id: self.service_id.unwrap(),
             msg: [self.service_port.unwrap()],
             sock: Arc::new(sock),
-            map: Arc::new(dashmap::DashMap::new()),
+            map: Arc::new(Mutex::new(HashMap::new())),
             interval: self.rampdown.into(),
             broadcast: broadcast::channel(16).0,
         })
@@ -275,13 +296,17 @@ impl ChartBuilder<1, Yes, Yes, No> {
 impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     /// build a chart that has a multiple service ports set
     ///
-    /// example:
+    /// # Errors
+    /// This errors if the discovery port could not be opened. see: [`Self::with_discovery_port`].
+    ///
+    /// # Example
     /// ```rust
-    ///use multicast_discovery::{discovery, ChartBuilder};
+    ///use std::error::Error;
+    ///use instance_chart::{discovery, ChartBuilder};
     ///use std::time::Duration;
     ///
     ///#[tokio::main]
-    ///async fn main() {
+    ///async fn main() -> Result<(), Box<dyn Error>> {
     ///   let chart = ChartBuilder::new()
     ///       .with_id(1)
     ///       .with_service_ports([8042,9042])
@@ -291,14 +316,13 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
     ///           Duration::from_millis(10),
     ///           Duration::from_secs(10),
     ///           Duration::from_secs(60))
-    ///       .finish()
-    ///       .unwrap();
+    ///       .finish()?;
     ///   let maintain = discovery::maintain(chart.clone());
     ///   let _ = tokio::spawn(maintain); // maintain task will run forever
+    ///   Ok(())
     /// }
     /// ```
-    /// # Errors
-    /// This errors if the discovery port could not be opened. 
+
     // with generic IdSet, PortSets set service_id and service_ports are always Some
     #[allow(clippy::missing_panics_doc)]
     pub fn finish(self) -> Result<Chart<N, Port>, Error> {
@@ -308,7 +332,7 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
             service_id: self.service_id.unwrap(),
             msg: self.service_ports,
             sock: Arc::new(sock),
-            map: Arc::new(dashmap::DashMap::new()),
+            map: Arc::new(Mutex::new(HashMap::new())),
             interval: self.rampdown.into(),
             broadcast: broadcast::channel(16).0,
         })
@@ -331,10 +355,11 @@ fn open_socket(port: u16, local_discovery: bool) -> Result<UdpSocket, Error> {
     }
     sock.set_broadcast(true).map_err(SetBroadcast)?; // enable udp broadcasting
     sock.set_multicast_loop_v4(true).map_err(SetMulticast)?; // send broadcast to self
+    sock.set_ttl(4).map_err(SetTTL)?; // deliver to other subnetworks
 
     let address = SocketAddr::from((interface, port));
     let address = SockAddr::from(address);
-    sock.bind(&address).map_err(Bind)?;
+    sock.bind(&address).map_err(|error| Bind { error, port })?;
     sock.join_multicast_v4(&multiaddr, &interface)
         .map_err(JoinMulticast)?;
 

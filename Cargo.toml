@@ -1,13 +1,18 @@
 [package]
-name = "multicast-discovery"
+name = "instance-chart"
 version = "0.1.0"
 edition = "2021"
 authors = ["David Kleingeld"]
 readme = "README.md"
-repository = "https://github.com/dvdsk/multicast-discovery"
+description = "Chart (discover) instances of your application on the same network and or machine"
+repository = "https://github.com/dvdsk/instance-chart"
 license = "MIT"
-keywords = ["multicast", "discovery", "mdns"]
+keywords = ["multicast", "discovery", "mdns", "peers"]
 categories = ["network-programming"]
+exclude = [
+	".github/workflows.test.yml",
+	".gitignore",
+]
 
 [badges]
 maintenance = { status = "passively-maintained" }
@@ -18,7 +23,6 @@ maintenance = { status = "passively-maintained" }
 thiserror = "1"
 rand = {version = "0.8", features = ["small_rng"]}
 tokio = {version = "1", features=["time", "net", "macros", "tracing", "rt", "sync"]}
-dashmap = "5"
 tracing = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde-big-array = "0.4"
@@ -32,3 +36,4 @@ tokio = {version = "1", features=["time", "net", "macros", "rt-multi-thread", "t
 console-subscriber = "0.1"
 more-asserts = "0.2"
 futures = "0.3"
+indicatif = "0.16"

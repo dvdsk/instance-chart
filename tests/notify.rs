@@ -1,14 +1,14 @@
 use futures::future::select_all;
-use multicast_discovery::{discovery, ChartBuilder};
-use std::net::SocketAddr;
+use instance_chart::{discovery, ChartBuilder};
 use std::collections::HashSet;
+use std::net::SocketAddr;
 use std::net::UdpSocket;
 
 fn setup_tracing() {
     use tracing_subscriber::{filter, prelude::*};
 
     let filter = filter::EnvFilter::builder()
-        .parse("info,multicast_discovery=debug")
+        .parse("info,instance_chart=debug")
         .unwrap();
 
     let fmt = tracing_subscriber::fmt::layer().pretty().with_test_writer();
@@ -48,7 +48,7 @@ async fn node(id: u64, cluster_size: u16) {
 
     if id == 0 {
         let mut new = chart.notify();
-        let mut discoverd: HashSet<_> = chart.iter_addr().into_iter().collect();
+        let mut discoverd: HashSet<_> = chart.addr_vec().into_iter().collect();
 
         while discoverd.len() + 1 < cluster_size as usize {
             let (_id, ip, msg) = new.recv().await.unwrap();
@@ -57,5 +57,44 @@ async fn node(id: u64, cluster_size: u16) {
         }
     } else {
         discovery::found_everyone(&chart, cluster_size).await;
+    }
+}
+
+#[tokio::test]
+async fn test_notify2() {
+    setup_tracing();
+    use instance_chart::{discovery, ChartBuilder};
+
+    let full_size = 4u16;
+    let _handles: Vec<_> = (1..=full_size)
+        .into_iter()
+        .map(|id| {
+            ChartBuilder::new()
+                .with_id(id.into())
+                .with_service_port(8042 + id)
+                .with_discovery_port(8080)
+                .local_discovery(true)
+                .finish()
+                .unwrap()
+        })
+        .map(discovery::maintain)
+        .map(tokio::spawn)
+        .collect();
+
+    let chart = ChartBuilder::new()
+        .with_id(1)
+        .with_service_port(8042)
+        .with_discovery_port(8080)
+        .local_discovery(true)
+        .finish()
+        .unwrap();
+
+    let mut node_discoverd = chart.notify();
+    let maintain = discovery::maintain(chart.clone());
+    let _ = tokio::spawn(maintain); // maintain task will run forever
+
+    while chart.size() < full_size as usize {
+        let new = node_discoverd.recv().await.unwrap();
+        println!("discoverd new node: {:?}", new);
     }
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
@@ -12,7 +13,6 @@ use serde_big_array::BigArray;
 use tokio::net::UdpSocket;
 use tokio::sync::broadcast;
 
-
 mod interval;
 use interval::Interval;
 use tracing::trace;
@@ -26,7 +26,7 @@ use builder::Port;
 
 pub use builder::ChartBuilder;
 
-pub mod iter;
+pub mod to_vec;
 
 use self::interval::Until;
 
@@ -41,9 +41,9 @@ where
     msg: [T; N],
 }
 
-/// A chart entry representing a discovered node. The msg is an array of 
+/// A chart entry representing a discovered node. The msg is an array of
 /// ports or a custom struct if you used [`custom_msg`](ChartBuilder::custom_msg()).
-/// 
+///
 /// You probably do not want to use one of the [iterator methods](iter) instead
 #[derive(Debug, Clone)]
 pub struct Entry<Msg: Debug + Clone> {
@@ -51,7 +51,7 @@ pub struct Entry<Msg: Debug + Clone> {
     pub msg: Msg,
 }
 
-/// The chart keeping track of the discoverd nodes. That a node appears in the 
+/// The chart keeping track of the discoverd nodes. That a node appears in the
 /// chart is no guarentee that it is reachable at this moment.
 #[derive(Debug, Clone)]
 pub struct Chart<const N: usize, T: Debug + Clone + Serialize> {
@@ -60,13 +60,16 @@ pub struct Chart<const N: usize, T: Debug + Clone + Serialize> {
     msg: [T; N],
     sock: Arc<UdpSocket>,
     interval: Interval,
-    map: Arc<dashmap::DashMap<Id, Entry<[T; N]>>>,
+    map: Arc<std::sync::Mutex<HashMap<Id, Entry<[T; N]>>>>,
     broadcast: broadcast::Sender<(Id, Entry<[T; N]>)>,
 }
 
 impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
     fn insert(&self, id: Id, entry: Entry<[T; N]>) -> bool {
-        let old_key = self.map.insert(id, entry.clone());
+        let old_key = {
+            let mut map = self.map.lock().unwrap();
+            map.insert(id, entry.clone())
+        };
         if old_key.is_none() {
             // errors if there are no active recievers which is
             // the default and not a problem
@@ -120,15 +123,60 @@ impl<T: Debug + Clone + Serialize> Chart<1, T> {
 impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T> {
     /// Wait for new discoveries. Use one of the methods on the [notify object](notify::Notify)
     /// to _await_ a new discovery and get the data.
+    /// # Examples
+    /// ```rust
+    /// # use std::error::Error;
+    /// # use instance_chart::{discovery, ChartBuilder};
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn Error>> {
+    /// # let full_size = 4u16;
+    /// # let handles: Vec<_> = (1..=full_size)
+    /// #     .into_iter()
+    /// #     .map(|id|
+    /// #         ChartBuilder::new()
+    /// #             .with_id(id.into())
+    /// #             .with_service_port(8042+id)
+    /// #             .with_discovery_port(8080)
+    /// #             .local_discovery(true)
+    /// #             .finish()
+    /// #             .unwrap()
+    /// #     )
+    /// #     .map(discovery::maintain)
+    /// #     .map(tokio::spawn)
+    /// #     .collect();
+    /// #
+    /// let chart = ChartBuilder::new()
+    ///     .with_id(1)
+    ///     .with_service_port(8042)
+    /// #   .with_discovery_port(8080)
+    ///     .local_discovery(true)
+    ///     .finish()?;
+    /// let mut node_discoverd = chart.notify();
+    /// let maintain = discovery::maintain(chart.clone());
+    /// let _ = tokio::spawn(maintain); // maintain task will run forever
+    ///
+    /// while chart.size() < full_size as usize {
+    ///     let new = node_discoverd.recv().await.unwrap();
+    ///     println!("discoverd new node: {:?}", new);
+    /// }
+    ///
+    /// #   Ok(())
+    /// # }
+    /// ```
     #[must_use]
     pub fn notify(&self) -> Notify<N, T> {
         Notify(self.broadcast.subscribe())
     }
 
     /// number of instances discoverd including self
+    
+    // lock poisoning happens only on crash in another thread, in which 
+    // case panicing here is expected
+    #[allow(clippy::missing_panics_doc)] 
     #[must_use]
     pub fn size(&self) -> usize {
-        self.map.len() + 1
+        self.map.lock().unwrap().len() + 1
     }
 
     /// The id set for this chart instance
@@ -187,19 +235,24 @@ where
 }
 
 #[tracing::instrument]
-pub(crate) async fn broadcast_periodically<const N: usize, T>(mut chart: Chart<N, T>, period: Duration)
-where
+pub(crate) async fn broadcast_periodically<const N: usize, T>(
+    mut chart: Chart<N, T>,
+    period: Duration,
+) where
     T: Debug + Serialize + DeserializeOwned + Clone,
 {
     loop {
         chart.interval.sleep_till_next().await;
         trace!("sending discovery msg");
-        broadcast(&chart.sock, &chart.discovery_buf()).await;
+        broadcast(&chart.sock, chart.discovery_port(), &chart.discovery_buf()).await;
     }
 }
 
 #[tracing::instrument]
-async fn broadcast(sock: &Arc<UdpSocket>, msg: &[u8]) {
+async fn broadcast(sock: &Arc<UdpSocket>, port: u16, msg: &[u8]) {
     let multiaddr = Ipv4Addr::from([224, 0, 0, 251]);
-    let _len = sock.send_to(msg, (multiaddr, 8080)).await.unwrap();
+    let _len = sock
+        .send_to(msg, (multiaddr, port))
+        .await
+        .unwrap_or_else(|e| panic!("broadcast failed with port: {port}, error: {e:?}"));
 }

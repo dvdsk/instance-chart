@@ -1,5 +1,5 @@
 use futures::future::select_all;
-use multicast_discovery::{discovery, ChartBuilder};
+use instance_chart::{discovery, ChartBuilder};
 use std::net::UdpSocket;
 use tracing::info;
 
@@ -7,7 +7,7 @@ fn setup_tracing() {
     use tracing_subscriber::{filter, prelude::*};
 
     let filter = filter::EnvFilter::builder()
-        .parse("info,multicast_discovery=debug")
+        .parse("info,instance_chart=debug")
         .unwrap();
 
     let fmt = tracing_subscriber::fmt::layer().pretty().with_test_writer();
@@ -49,10 +49,10 @@ async fn node(id: u64, cluster_size: u16) {
     let _ = tokio::spawn(maintain);
 
     discovery::found_everyone(&chart, cluster_size).await;
-    info!("adresses: {:?}", chart.iter_addr_lists().collect::<Vec<_>>());
+    info!("adresses: {:?}", chart.addr_lists_vec());
     info!(
         "adresses: {:?}",
-        chart.iter_nth_addr::<1>().collect::<Vec<_>>()
+        chart.nth_addr_vec::<1>()
     );
     info!("discovery complete: {chart:?}");
 }

@@ -1,40 +1,46 @@
-//! Simple lightweight local service discovery for testing
+//! Provides data about other instances on the same machine/network
 //!
 //! This crate provides a lightweight alternative to `mDNS`. It discovers other instances on the
-//! same machine or network. You provide an Id and Port you wish to be contacted on. Multicast-discovery
-//! then gives you a live updating chart of all the discovered Ids, Ports pairs and their adress.
+//! same network or (optionally) machine. You provide an `Id` and some `data` you want to share.
+//! Usually this is a port your service uses. This gives you a live updating chart
+//! of all the discovered `Ids`-`data` pairs and the corrosponding ip adresses.
+//!
+//! The chart can contain instances that are now down. It can not be used to check if a service is
+//! up.
 //!
 //! ## Usage
 //!
-//! Add a dependency on `multicast-discovery` in `Cargo.toml`:
+//! Add a dependency on `instance-chart` in `Cargo.toml`:
 //!
 //! ```toml
-//! multicast-discovery = "0.1"
+//! instance_chart = "0.1"
 //! ```
 //!
 //! Now add the following snippet somewhere in your codebase. Discovery will stop when you drop the
 //! maintain future.
 //!
 //! ```rust
-//!use multicast_discovery::{discovery, ChartBuilder};
+//! use std::error::Error;
+//! use instance_chart::{discovery, ChartBuilder};
 //!
-//!#[tokio::main]
-//!async fn main() {
-//!   let chart = ChartBuilder::new()
-//!       .with_id(1)
-//!       .with_service_port(8042)
-//!       .finish()
-//!       .unwrap();
-//!   let maintain = discovery::maintain(chart.clone());
-//!   let _ = tokio::spawn(maintain); // maintain task will run forever
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn Error>> {
+//!    let chart = ChartBuilder::new()
+//!        .with_id(1)
+//!        .with_service_port(8042)
+//!        .finish()?;
+//!    let maintain = discovery::maintain(chart.clone());
+//!    let _ = tokio::spawn(maintain); // maintain task will run forever
+//!    Ok(())
 //! }
 //! ```
 
 mod chart;
 pub mod discovery;
+mod util;
 use std::io;
 
-pub use chart::{Chart, ChartBuilder, Notify, iter};
+pub use chart::{Chart, ChartBuilder, Notify};
 type Id = u64;
 
 #[derive(thiserror::Error, Debug)]
@@ -47,13 +53,14 @@ pub enum Error {
     SetBroadcast(io::Error),
     #[error("Error not set Multicast flag on the socket")]
     SetMulticast(io::Error),
+    #[error("Error not set TTL flag on the socket")]
+    SetTTL(io::Error),
     #[error("Error not set NonBlocking flag on the socket")]
     SetNonBlocking(io::Error),
-    #[error("Error binding to socket")]
-    Bind(io::Error),
+    #[error("Error binding to socket, you might want to try another discovery port and/or enable local_discovery.")]
+    Bind { error: io::Error, port: u16 },
     #[error("Error joining multicast network")]
     JoinMulticast(io::Error),
     #[error("Error transforming to async socket")]
     ToTokio(io::Error),
 }
-
