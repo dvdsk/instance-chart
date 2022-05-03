@@ -41,7 +41,7 @@ mod util;
 use std::io;
 
 pub use chart::{Chart, ChartBuilder, Notify};
-type Id = u64;
+pub type Id = u64;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
