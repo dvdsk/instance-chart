@@ -51,9 +51,9 @@ async fn node(id: u64, cluster_size: u16) {
         let mut discoverd: HashSet<_> = chart.addr_vec().into_iter().collect();
 
         while discoverd.len() + 1 < cluster_size as usize {
-            let (_id, ip, msg) = new.recv().await.unwrap();
+            let (id, ip, msg) = new.recv().await.unwrap();
             let addr = SocketAddr::new(ip, msg[0]);
-            discoverd.insert(addr);
+            discoverd.insert((id, addr));
         }
     } else {
         discovery::found_everyone(&chart, cluster_size).await;
