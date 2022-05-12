@@ -1,23 +1,25 @@
+use crate::Id;
 use std::net::SocketAddr;
+
 use super::builder::Port;
 use super::{Chart, Entry};
 
 impl<const N: usize> Chart<N, Port> {
     /// Returns an vector with each discovered node's socketadresses.
-    /// # Note 
+    /// # Note
     /// - vector order is random
-    /// - only availible for Chart configured with 
-    /// [`ChartBuilder::with_service_ports`](crate::ChartBuilder::with_service_ports) 
+    /// - only availible for Chart configured with
+    /// [`ChartBuilder::with_service_ports`](crate::ChartBuilder::with_service_ports)
     /// and build using [`ChartBuilder::finish`](crate::ChartBuilder::finish).
     /// ```rust
     /// # use std::error::Error;
     /// # use instance_chart::{discovery, ChartBuilder};
-    /// # 
+    /// #
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn Error>> {
     /// let chart = ChartBuilder::new()
     ///     .with_id(1)
-    /// #   .with_discovery_port(43785) 
+    /// #   .with_discovery_port(43785)
     ///     .with_service_ports([8042, 8043, 8044])
     ///     .finish()?;
     /// let maintain = discovery::maintain(chart.clone());
@@ -27,18 +29,19 @@ impl<const N: usize> Chart<N, Port> {
     /// # }
     /// ```
 
-    // lock poisoning happens only on crash in another thread, in which 
+    // lock poisoning happens only on crash in another thread, in which
     // case panicing here is expected
-    #[allow(clippy::missing_panics_doc)] 
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
-    pub fn addr_lists_vec(&self) -> Vec<[SocketAddr; N]> {
+    pub fn addr_lists_vec(&self) -> Vec<(Id, [SocketAddr; N])> {
         self.map
             .lock()
             .unwrap()
             .iter()
-            .map(|(_, entry)| {
+            .map(|(id, entry)| {
                 let Entry { ip, msg: ports } = entry;
-                ports.map(|p| SocketAddr::new(*ip, p))
+                let addr = ports.map(|p| SocketAddr::new(*ip, p));
+                (*id, addr)
             })
             .collect()
     }
@@ -46,23 +49,23 @@ impl<const N: usize> Chart<N, Port> {
 
 impl<const N: usize> Chart<N, Port> {
     /// Returns a vector over each discoverd node's nth-socketadress
-    /// # Note 
+    /// # Note
     /// - vector order is random
-    /// - only availible for Chart configured with 
-    /// [`ChartBuilder::with_service_ports`](crate::ChartBuilder::with_service_ports) 
+    /// - only availible for Chart configured with
+    /// [`ChartBuilder::with_service_ports`](crate::ChartBuilder::with_service_ports)
     /// and build using [`ChartBuilder::finish`](crate::ChartBuilder::finish).
     ///
-    /// # Examples 
+    /// # Examples
     /// ```rust
     /// # use std::error::Error;
     /// # use instance_chart::{discovery, ChartBuilder};
-    /// # 
+    /// #
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn Error>> {
     /// let web_server_port = 8043;
     /// let chart = ChartBuilder::new()
     ///     .with_id(1)
-    /// #   .with_discovery_port(43784) 
+    /// #   .with_discovery_port(43784)
     ///     .with_service_ports([8042, web_server_port, 8044])
     ///     .finish()?;
     /// let maintain = discovery::maintain(chart.clone());
@@ -72,19 +75,19 @@ impl<const N: usize> Chart<N, Port> {
     /// # }
     /// ```
 
-    // lock poisoning happens only on crash in another thread, in which 
+    // lock poisoning happens only on crash in another thread, in which
     // case panicing here is expected
-    #[allow(clippy::missing_panics_doc)] 
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
-    pub fn nth_addr_vec<const IDX: usize>(&self) -> Vec<SocketAddr> {
+    pub fn nth_addr_vec<const IDX: usize>(&self) -> Vec<(Id, SocketAddr)> {
         self.map
             .lock()
             .unwrap()
             .iter()
-            .map(|(_, entry)| {
+            .map(|(id, entry)| {
                 let Entry { ip, msg: ports } = entry;
                 let port = ports[IDX];
-                SocketAddr::new(*ip, port)
+                (*id, SocketAddr::new(*ip, port))
             })
             .collect()
     }
@@ -92,20 +95,20 @@ impl<const N: usize> Chart<N, Port> {
 
 impl<'a> Chart<1, Port> {
     /// Returns a vector over each discoverd nodes's socketadress
-    /// # Note 
+    /// # Note
     /// - vector order is random
-    /// - only availible for Chart configured with 
-    /// [`ChartBuilder::with_service_port`](crate::ChartBuilder::with_service_port) 
+    /// - only availible for Chart configured with
+    /// [`ChartBuilder::with_service_port`](crate::ChartBuilder::with_service_port)
     /// and build using [`ChartBuilder::finish`](crate::ChartBuilder::finish).
     /// ```rust
     /// # use std::error::Error;
     /// # use instance_chart::{discovery, ChartBuilder};
-    /// # 
+    /// #
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn Error>> {
     /// let chart = ChartBuilder::new()
     ///     .with_id(1)
-    /// #   .with_discovery_port(43782) 
+    /// #   .with_discovery_port(43782)
     ///     .with_service_port(8042)
     ///     .finish()?;
     /// let maintain = discovery::maintain(chart.clone());
@@ -115,18 +118,18 @@ impl<'a> Chart<1, Port> {
     /// # }
     /// ```
 
-    // lock poisoning happens only on crash in another thread, in which 
+    // lock poisoning happens only on crash in another thread, in which
     // case panicing here is expected
-    #[allow(clippy::missing_panics_doc)] 
+    #[allow(clippy::missing_panics_doc)]
     #[must_use]
-    pub fn addr_vec(&'a self) -> Vec<SocketAddr> {
+    pub fn addr_vec(&'a self) -> Vec<(Id, SocketAddr)> {
         self.map
             .lock()
             .unwrap()
             .iter()
-            .map(|(_, entry)| {
+            .map(|(id, entry)| {
                 let Entry { ip, msg: [port] } = entry;
-                SocketAddr::new(*ip, *port)
+                (*id, SocketAddr::new(*ip, *port))
             })
             .collect()
     }
@@ -174,9 +177,7 @@ mod tests {
         let iter: HashSet<_> = chart.addr_vec().into_iter().collect();
         let correct: HashSet<_> = (1..10)
             .map(test_kv)
-            .map(|(_, e)| e)
-            .map(|e| (e.ip, e.msg[0]))
-            .map(SocketAddr::from)
+            .map(|(id, e)| (id, SocketAddr::new(e.ip, e.msg[0])))
             .collect();
 
         assert_eq!(iter, correct)
@@ -202,8 +203,10 @@ mod tests {
         let iter: HashSet<_> = chart.addr_lists_vec().into_iter().collect();
         let correct: HashSet<_> = (1..10)
             .map(entry_3ports)
-            .map(|(_, e)| e)
-            .map(|e| e.msg.map(|p| (e.ip, p)).map(SocketAddr::from))
+            .map(|(id, e)| {
+                let addr = e.msg.map(|p| (e.ip, p)).map(SocketAddr::from);
+                (id, addr)
+            })
             .collect();
         assert_eq!(iter, correct)
     }
@@ -213,9 +216,7 @@ mod tests {
         let iter: HashSet<_> = chart.nth_addr_vec::<1>().into_iter().collect();
         let correct: HashSet<_> = (1..10)
             .map(entry_3ports)
-            .map(|(_, e)| e)
-            .map(|e| (e.ip, e.msg[1]))
-            .map(SocketAddr::from)
+            .map(|(id, e)| (id, SocketAddr::new(e.ip, e.msg[1])))
             .collect();
         assert_eq!(iter, correct)
     }
