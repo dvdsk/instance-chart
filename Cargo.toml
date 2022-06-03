@@ -23,7 +23,7 @@ maintenance = { status = "passively-maintained" }
 thiserror = "1"
 rand = {version = "0.8", features = ["small_rng"]}
 # tokio = {version = "1", features=["time", "net", "macros", "tracing", "rt", "sync"]}
-tokio = {git = "https://github.com/tokio-rs/tokio", branch = "eliza/joinset-builder", features=["time", "net", "macros", "tracing", "rt", "sync"]}
+tokio = {git = "https://github.com/tokio-rs/tokio", rev = "0d4d3c3", features=["time", "net", "macros", "tracing", "rt", "sync"]}
 tracing = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde-big-array = "0.4"
@@ -34,7 +34,7 @@ socket2 = "0.4"
 mac_address = "1.1.2"
 tracing-subscriber = {version = "0.3", features = ["fmt", "ansi", "env-filter"]}
 # tokio = {version = "1", features=["time", "net", "macros", "rt-multi-thread", "tracing"]}
-tokio = {git = "https://github.com/tokio-rs/tokio", branch = "eliza/joinset-builder", features=["time", "net", "macros", "tracing", "rt-multi-thread", "tracing"]}
+tokio = {git = "https://github.com/tokio-rs/tokio", rev = "0d4d3c3", features=["time", "net", "macros", "tracing", "rt-multi-thread", "tracing"]}
 console-subscriber = "0.1"
 more-asserts = "0.2"
 futures = "0.3"
