@@ -147,7 +147,7 @@ mod tests {
     use tokio::net::UdpSocket;
 
     impl<const N: usize, T: Serialize + Debug + Clone> Chart<N, T> {
-        async fn test<F>(mut gen_kv: F) -> Self
+        pub async fn test<F>(mut gen_kv: F) -> Self
         where
             F: FnMut(u8) -> (Id, Entry<[T; N]>) + Copy,
         {

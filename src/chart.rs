@@ -27,6 +27,7 @@ use builder::Port;
 pub use builder::ChartBuilder;
 
 pub mod to_vec;
+pub mod get;
 
 use self::interval::Until;
 
@@ -184,6 +185,7 @@ impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T
     pub fn our_id(&self) -> u64 {
         self.service_id
     }
+
 
     /// The port this instance is using for discovery
     #[allow(clippy::missing_panics_doc)] // socket is set during building
