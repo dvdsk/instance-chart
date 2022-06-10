@@ -22,6 +22,22 @@ impl<T, E> AcceptErr<T, E> for Result<T, E> {
     }
 }
 
+/// This listens only, mapping the cluster without announcing itself.
+/// Usefull for clients on the same subnet trying to find nodes to contact.
+/// You can drop the future but then the chart will no longer be updated.
+///
+/// # Note 
+/// Take care not to call `maintain` anywhere
+#[tracing::instrument]
+pub async fn sniff<'de, const N: usize, T>(chart: Chart<N, T>) 
+where
+    T: 'static + Debug + Clone + Serialize + DeserializeOwned + Sync + Send
+{
+    use tokio::task::JoinError;
+    let f = util::spawn(handle_incoming(chart.clone()));
+    f.await.accept_err_with(JoinError::is_cancelled).unwrap();
+}
+
 /// This drives the chart discovery. You can drop the future but then the chart
 /// will no longer be updated.
 #[tracing::instrument]
