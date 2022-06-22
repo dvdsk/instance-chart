@@ -26,8 +26,8 @@ use builder::Port;
 
 pub use builder::ChartBuilder;
 
-pub mod to_vec;
 pub mod get;
+pub mod to_vec;
 
 use self::interval::Until;
 
@@ -170,11 +170,20 @@ impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T
         Notify(self.broadcast.subscribe())
     }
 
+    /// forget a node removing it from the map. If it is discovered again notify 
+    /// subscribers will get a notification (again)
+    ///
+    /// # Note
+    /// This has no effect if the node has not yet been discoverd
+    #[allow(clippy::missing_panics_doc)] // ignore lock poisoning
+    pub fn forget(&self, id: Id) {
+        self.map.lock().unwrap().remove(&id);
+    }
+
     /// number of instances discoverd including self
-    
-    // lock poisoning happens only on crash in another thread, in which 
+    // lock poisoning happens only on crash in another thread, in which
     // case panicing here is expected
-    #[allow(clippy::missing_panics_doc)] 
+    #[allow(clippy::missing_panics_doc)] // ignore lock poisoning
     #[must_use]
     pub fn size(&self) -> usize {
         self.map.lock().unwrap().len() + 1
@@ -185,7 +194,6 @@ impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T
     pub fn our_id(&self) -> u64 {
         self.service_id
     }
-
 
     /// The port this instance is using for discovery
     #[allow(clippy::missing_panics_doc)] // socket is set during building
