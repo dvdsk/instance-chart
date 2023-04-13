@@ -41,26 +41,39 @@ mod util;
 use std::io;
 
 pub use chart::{Chart, ChartBuilder, Notify};
+
+/// Identifier for a single instance of `Chart`. Must be unique.
 pub type Id = u64;
 
+/// Errors that can occure while building a Chart. Except for [`Bind`](Error::Bind) these rarely
+/// occur.
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error("Error setting up bare socket")]
+    /// Could not set up bare socket
+    #[error("Could not set up bare socket")]
     Construct(io::Error),
-    #[error("Error not set Reuse flag on the socket")]
+    /// Failed to set Reuse flag on the socket
+    #[error("Failed to set Reuse flag on the socket")]
     SetReuse(io::Error),
-    #[error("Error not set Broadcast flag on the socket")]
+    /// Failed to set Broadcast flag on the socket
+    #[error("Failed to set Broadcast flag on the socket")]
     SetBroadcast(io::Error),
-    #[error("Error not set Multicast flag on the socket")]
+    /// Failed to set Multicast flag on the socket
+    #[error("Failed to set Multicast flag on the socket")]
     SetMulticast(io::Error),
-    #[error("Error not set TTL flag on the socket")]
+    /// Failed to set TTL flag on the socket
+    #[error("Failed to set TTL flag on the socket")]
     SetTTL(io::Error),
-    #[error("Error not set NonBlocking flag on the socket")]
+    /// Failed to set NonBlocking flag on the socket
+    #[error("Failed to set NonBlocking flag on the socket")]
     SetNonBlocking(io::Error),
+    /// Error binding to socket, you might want to try another discovery port and/or enable local_discovery.
     #[error("Error binding to socket, you might want to try another discovery port and/or enable local_discovery.")]
     Bind { error: io::Error, port: u16 },
-    #[error("Error joining multicast network")]
+    /// Failed joining multicast network
+    #[error("Failed joining multicast network")]
     JoinMulticast(io::Error),
-    #[error("Error transforming to async socket")]
+    /// Failed to transform blocking to async socket
+    #[error("Failed to transform blocking to async socket")]
     ToTokio(io::Error),
 }

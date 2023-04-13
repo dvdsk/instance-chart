@@ -48,6 +48,7 @@ impl<const N: usize, T: Debug + Clone> Notify<N, T> {
     /// # Errors
     /// If more the 16 discoveries have been made since this was called this returns
     /// `RecvError::Lagged`
+    #[allow(clippy::missing_panics_doc)] // the array msg is the same size >= IDX
     pub async fn recv_nth<const IDX:usize>(&mut self) ->Result<(Id, IpAddr, T), RecvError> {
         let (id, ip, msg) = self.recv().await?;
         let msg = msg.into_iter().nth(IDX).unwrap(); // cant move out of array

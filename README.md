@@ -1,4 +1,15 @@
- Provides data about other instances on the same machine/network
+# Instance chart
+
+ > **Provides data about other instances on the same machine/network**
+
+[![Crates.io](https://img.shields.io/crates/v/instance-chart?style=flat-square)](https://crates.io/crates/instance-chart)
+[![Crates.io](https://img.shields.io/crates/d/instance-chart?style=flat-square)](https://crates.io/crates/instance-chart)
+[![Docs.rs](https://img.shields.io/docsrs/instance-chart?style=flat-square)](https://docs.rs/instance-chart)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE-MIT)
+
+See also:
+ - [API documentation](https://docs.rs/instance-chart)
+ - [Changelog](CHANGELOG.md)
 
  This crate provides a lightweight alternative to `mDNS`. It discovers other instances on the
  same network or (optionally) machine. You provide an `Id` and some `data` you want to share.
