@@ -191,7 +191,7 @@ impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T
 
     /// The id set for this chart instance
     #[must_use]
-    pub fn our_id(&self) -> u64 {
+    pub fn our_id(&self) -> Id {
         self.service_id
     }
 

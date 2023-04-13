@@ -7,4 +7,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.2]
 
-No notable changes
+### Added
+`ChartBuilder::with_random_id` uses a true random number to set an instance `Id`.

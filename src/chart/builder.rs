@@ -8,9 +8,12 @@ use std::time::Duration;
 use crate::Error;
 
 use super::{interval, Chart, Id};
+use rand::rngs::OsRng;
+use rand::RngCore;
 use serde::Serialize;
 use tokio::net::UdpSocket;
 use tokio::sync::broadcast;
+use tracing::info;
 
 #[derive(Debug, Default)]
 pub struct Yes;
@@ -33,9 +36,7 @@ const DEFAULT_PORT: u16 = 8080;
 pub type Port = u16;
 
 /// Construct a Chart using a builder-like pattern. You must always set an `id`. You also
-/// need to set `service port` or `service ports` and build with `finish()` or set a custom `msg`
-/// and build using `custom_msg()`. See the examples of [ChartBuilder::custom_msg()]
-/// or [ChartBuilder::finish()].
+/// need to set [`service port`](ChartBuilder::with_service_port) or [`service ports`](ChartBuilder::with_service_ports). Now you can build with [`finish`](ChartBuilder::finish) or using [`custom_msg`][ChartBuilder::custom_msg]. The latter allowes you to set a custom message to share with other instances when they discover you.
 #[allow(clippy::pedantic)]
 pub struct ChartBuilder<const N: usize, IdSet, PortSet, PortsSet>
 where
@@ -81,11 +82,37 @@ where
     PortSet: ToAssign,
     PortsSet: ToAssign,
 {
-    /// Set the `id` for this node, the `id` is the key for this node in the chart
+    /// Set the [`Id`] for this node, the [`Id`] is the key for this node in the chart
     /// # Note
-    /// Always needed, you can not build without an `id` set. The `id` must be __unique__
+    /// Always needed, you can not build without an [`Id`] set. The [`Id`] must be __unique__
     #[must_use]
     pub fn with_id(self, id: Id) -> ChartBuilder<N, Yes, PortSet, PortsSet> {
+        ChartBuilder {
+            header: self.header,
+            discovery_port: self.discovery_port,
+            service_id: Some(id),
+            service_port: self.service_port,
+            service_ports: self.service_ports,
+            rampdown: self.rampdown,
+            local: self.local,
+            id_set: PhantomData {},
+            port_set: PhantomData {},
+            ports_set: PhantomData {},
+        }
+    }
+
+    /// Use a true random number from a reliable source of randomness as an [`Id`].
+    /// # Note
+    /// I recommend setting the ['Id'] in a deterministic way if possible, it makes debugging a lot
+    /// easier. Theoretically using this method can fail if multiple instances get the same random
+    /// number, the chance of this is unrealistically small.
+    ///
+    /// It is *extreemly* unlikely though possible that this fails. This happens if the systems source of random is configured incorrectly.
+    #[must_use]
+    pub fn with_random_id(self) -> ChartBuilder<N, Yes, PortSet, PortsSet> {
+        let mut rng = OsRng::default();
+        let id = rng.next_u64();
+        info!("Using random id: {id}");
         ChartBuilder {
             header: self.header,
             discovery_port: self.discovery_port,
@@ -102,7 +129,7 @@ where
     /// Set a `port` for use by your application. This will appear to the other
     /// nodes in the Chart.
     /// # Note
-    /// You need to use this or [`with_service_ports`](Self::with_service_ports) if 
+    /// You need to use this or [`with_service_ports`](Self::with_service_ports) if
     /// building with [`finish()`](Self::finish). Cant be used when bulding with
     /// [`custom_msg`](Self::custom_msg).
     #[must_use]
@@ -123,7 +150,7 @@ where
     /// Set mutiple `ports` for use by your application. This will appear to the other
     /// nodes in the Chart.
     /// # Note
-    /// You need to use this or [`with_service_port`](Self::with_service_port) if 
+    /// You need to use this or [`with_service_port`](Self::with_service_port) if
     /// building with [`finish()`](Self::finish). Cant be used when bulding with
     /// [`custom_msg`](Self::custom_msg).
     #[must_use]
@@ -179,12 +206,12 @@ where
 
     #[must_use]
     /// set whether discovery is enabled within the same host. Defaults to false.
-    /// 
+    ///
     /// # Warning
-    /// When this is enabled you might not be warned if the `discovery port` is in use by another application. 
+    /// When this is enabled you might not be warned if the `discovery port` is in use by another application.
     /// The other application will recieve network traffic from this crate. This might lead to
     /// corruption in the application if it can not handle this.
-    /// `ChartBuilder` will still fail if the `discovery port` is already bound to a multicast adress 
+    /// `ChartBuilder` will still fail if the `discovery port` is already bound to a multicast adress
     /// without `SO_REUSEADDR` set.
     pub fn local_discovery(
         mut self,
@@ -341,7 +368,10 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
 
 fn open_socket(port: u16, local_discovery: bool) -> Result<UdpSocket, Error> {
     use socket2::{Domain, SockAddr, Socket, Type};
-    use Error::*;
+    use Error::{
+        Bind, Construct, JoinMulticast, SetBroadcast, SetMulticast, SetNonBlocking, SetReuse,
+        SetTTL, ToTokio,
+    };
 
     assert_ne!(port, 0);
 

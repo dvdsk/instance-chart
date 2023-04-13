@@ -100,7 +100,7 @@ impl<const N: usize> Chart<N, Port> {
     }
 }
 
-impl<'a> Chart<1, Port> {
+impl Chart<1, Port> {
     /// Get a nodes `SocketAddr`'s given its `Id`
     ///
     /// # Note
