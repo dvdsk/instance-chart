@@ -4,7 +4,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/instance-chart?style=flat-square)](https://crates.io/crates/instance-chart)
 [![Crates.io](https://img.shields.io/crates/d/instance-chart?style=flat-square)](https://crates.io/crates/instance-chart)
-[![Docs.rs](https://img.shields.io/docsrs/instance-chart-config?style=flat-square)](https://docs.rs/instance-chart)
+[![Docs.rs](https://img.shields.io/docsrs/instance-chart?style=flat-square)](https://docs.rs/instance-chart)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE-MIT)
 
 See also:
