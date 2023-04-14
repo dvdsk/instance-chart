@@ -24,7 +24,7 @@ See also:
  Add a dependency on `instance-chart` in `Cargo.toml`:
 
  ```toml
- instance_chart = "0.1"
+ instance_chart = "0.3"
  ```
 
  Now add the following snippet somewhere in your codebase. Discovery will stop when you drop the
@@ -37,11 +37,51 @@ See also:
  #[tokio::main]
  async fn main() -> Result<(), Box<dyn Error>> {
     let chart = ChartBuilder::new()
-        .with_id(1)
-        .with_service_port(8042)
+        .with_id(1) // pick a unique id for each service
+        .with_service_port(8042) // The port your service, not discovery, runs on
         .finish()?;
     let maintain = discovery::maintain(chart.clone());
     let _ = tokio::spawn(maintain); // maintain task will run forever
     Ok(())
  }
  ```
+
+## Example App
+
+A minimal peer to peer chat app using instance-chart to discover peers. After type a line the message is sent to all the peers simply by looping over their addresses returned by [`chart.addr_vec()`](Chart::addr_vec).
+
+```rust,ignore
+#[tokio::main]
+async fn main() {
+	let listener = TcpListener::bind(("0.0.0.0", 0)).await.unwrap();
+	let port = listener.local_addr().unwrap().port();
+
+	let chart = ChartBuilder::new()
+		.with_random_id()
+		.with_service_port(port)
+		.local_discovery(true)
+		.finish()
+		.unwrap();
+
+	// run these task forever in the background
+	let chart2 = chart.clone();
+	tokio::spawn(async move { discovery::maintain(chart2).await });
+	tokio::spawn(async move { print_incoming(listener).await });
+
+	spawn_blocking(move || {
+		let reader = std::io::stdin();
+		loop {
+			let mut line = String::new();
+			reader.read_line(&mut line).unwrap();
+			for (_, addr) in chart.addr_vec() {
+				let mut peer = std::net::TcpStream::connect(addr).unwrap();
+				peer.write_all(line.as_bytes()).unwrap();
+			}
+		}
+	})
+	.await
+	.unwrap();
+}
+```
+
+For the full working example including the `print_incoming` function see [examples/chat.rs](examples/chat.rs).

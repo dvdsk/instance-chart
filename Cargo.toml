@@ -32,7 +32,7 @@ socket2 = { version = "0.5", features = ["all"] }
 [dev-dependencies]
 mac_address = "1.1"
 tracing-subscriber = {version = "0.3", features = ["fmt", "ansi", "env-filter"]}
-tokio = {version = "1", features=["time", "net", "macros", "rt-multi-thread", "tracing"]}
+tokio = {version = "1", features=["time", "net", "macros", "rt-multi-thread", "tracing", "io-util"]}
 console-subscriber = "0.1"
 more-asserts = "0.3"
 futures = "0.3"

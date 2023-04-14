@@ -1,6 +1,4 @@
 use std::fmt::Debug;
-use std::time::Duration;
-
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tracing::info;
@@ -47,7 +45,7 @@ where
 {
     use tokio::task::JoinError;
     let f1 = util::spawn(handle_incoming(chart.clone()));
-    let f2 = util::spawn(broadcast_periodically(chart, Duration::from_secs(10)));
+    let f2 = util::spawn(broadcast_periodically(chart));
     f1.await.accept_err_with(JoinError::is_cancelled).unwrap();
     f2.await.accept_err_with(JoinError::is_cancelled).unwrap();
 }
