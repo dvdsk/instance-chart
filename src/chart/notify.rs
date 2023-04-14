@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
 
-/// Wait for notifications of new discoveries, buffering up to 255 discoveries, created using
+/// Wait for notifications of new discoveries, buffering up to 256 discoveries, created using
 /// [`Chart::notify()`](crate::Chart::notify).
 ///
 /// # Examples
@@ -45,7 +45,7 @@ impl<T: Debug + Clone> Notify<1, T> {
     /// Can only be called on a
     /// Notify for a chart created with [`ChartBuilder::custom_msg()`](crate::ChartBuilder::custom_msg)
     /// # Errors
-    /// If more the 255 discoveries have been made since this was called this returns
+    /// If more the 256 discoveries have been made since this was called this returns
     /// `RecvError::Lagged`
     pub async fn recv_one(&mut self) -> Result<(Id, IpAddr, T), RecvError> {
         let (id, ip, [msg]) = self.recv().await?;
@@ -60,7 +60,7 @@ impl<const N: usize, T: Debug + Clone> Notify<N, T> {
     /// Can only be called on a
     /// Notify for a chart created with [`ChartBuilder::custom_msg()`](crate::ChartBuilder::custom_msg)
     /// # Errors
-    /// If more the 255 discoveries have been made since this was called this returns
+    /// If more the 256 discoveries have been made since this was called this returns
     /// `RecvError::Lagged`
     pub async fn recv(&mut self) -> Result<(Id, IpAddr, [T; N]), RecvError> {
         let (id, entry) = self.0.recv().await?;
@@ -73,7 +73,7 @@ impl<const N: usize, T: Debug + Clone> Notify<N, T> {
     /// Can only be called on a
     /// Notify for a chart created with [`ChartBuilder::custom_msg()`](crate::ChartBuilder::custom_msg)
     /// # Errors
-    /// If more the 255 discoveries have been made since this was called this returns
+    /// If more the 256 discoveries have been made since this was called this returns
     /// `RecvError::Lagged`
     #[allow(clippy::missing_panics_doc)] // the array msg is the same size >= IDX
     pub async fn recv_nth<const IDX: usize>(&mut self) -> Result<(Id, IpAddr, T), RecvError> {
@@ -91,7 +91,7 @@ impl Notify<1, u16> {
     /// Notify for a chart created with [`ChartBuilder::finish()`](crate::ChartBuilder::finish)
     /// that had as single service port set.
     /// # Errors
-    /// If more the 255 discoveries have been made since this was called this returns
+    /// If more the 256 discoveries have been made since this was called this returns
     /// `RecvError::Lagged`
     pub async fn recv_addr(&mut self) -> Result<(Id, SocketAddr), RecvError> {
         let (id, ip, [port]) = self.recv().await?;
@@ -100,28 +100,28 @@ impl Notify<1, u16> {
 }
 
 impl<const N: usize> Notify<N, u16> {
-    /// await the next discovered instance. Buffers up to 255 discoveries. Returns the id
+    /// await the next discovered instance. Buffers up to 256 discoveries. Returns the id
     /// and service adresseses for new node when it is discovered.
     /// # Note
     /// Can only be called on a
     /// Notify for a chart created with [`ChartBuilder::finish()`](crate::ChartBuilder::finish)
     /// that had multiple service ports set.
     /// # Errors
-    /// If more the 255 discoveries have been made since this was called this returns
+    /// If more the 256 discoveries have been made since this was called this returns
     /// `RecvError::Lagged`
     pub async fn recv_addresses(&mut self) -> Result<(Id, [SocketAddr; N]), RecvError> {
         let (id, ip, ports) = self.recv().await?;
         Ok((id, ports.map(|p| SocketAddr::new(ip, p))))
     }
 
-    /// await the next discovered instance. Buffers up to 255 discoveries. Returns the id
+    /// await the next discovered instance. Buffers up to 256 discoveries. Returns the id
     /// and nth service adresses for new node when it is discovered.
     /// # Note
     /// Can only be called on a
     /// Notify for a chart created with [`ChartBuilder::finish()`](crate::ChartBuilder::finish)
     /// that had multiple service ports set.
     /// # Errors
-    /// If more the 255 discoveries have been made since this was called this returns
+    /// If more the 256 discoveries have been made since this was called this returns
     /// `RecvError::Lagged`
     pub async fn recv_nth_addr<const IDX: usize>(&mut self) -> Result<(Id, SocketAddr), RecvError> {
         let (id, ip, ports) = self.recv().await?;

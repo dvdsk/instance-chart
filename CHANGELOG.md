@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Peer to peer chat example
 
 ### Changed
-Notify handle can now handle 255 missed new discoveries before panicking, was 16.
+Notify handle can now handle 256 missed new discoveries before panicking, was 16.
 
 ## [0.3]
 

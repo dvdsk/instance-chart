@@ -269,7 +269,7 @@ impl ChartBuilder<1, Yes, No, No> {
             sock: Arc::new(sock),
             map: Arc::new(Mutex::new(HashMap::new())),
             interval: self.rampdown.into(),
-            broadcast: broadcast::channel(u8::MAX as usize).0,
+            broadcast: broadcast::channel(256).0,
         })
     }
 }
@@ -315,7 +315,7 @@ impl ChartBuilder<1, Yes, Yes, No> {
             sock: Arc::new(sock),
             map: Arc::new(Mutex::new(HashMap::new())),
             interval: self.rampdown.into(),
-            broadcast: broadcast::channel(u8::MAX as usize).0,
+            broadcast: broadcast::channel(256).0,
         })
     }
 }
@@ -361,7 +361,7 @@ impl<const N: usize> ChartBuilder<N, Yes, No, Yes> {
             sock: Arc::new(sock),
             map: Arc::new(Mutex::new(HashMap::new())),
             interval: self.rampdown.into(),
-            broadcast: broadcast::channel(u8::MAX as usize).0,
+            broadcast: broadcast::channel(256).0,
         })
     }
 }
