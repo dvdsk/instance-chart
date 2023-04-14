@@ -122,7 +122,7 @@ impl<T: Debug + Clone + Serialize> Chart<1, T> {
 }
 
 impl<const N: usize, T: Debug + Clone + Serialize + DeserializeOwned> Chart<N, T> {
-    /// Wait for new discoveries. Use one of the methods on the [notify object](notify::Notify)
+    /// Wait for new discoveries. Use one of the methods on the [`notify object`](notify::Notify)
     /// to _await_ a new discovery and get the data.
     /// # Examples
     /// ```rust
@@ -247,14 +247,13 @@ where
 #[tracing::instrument]
 pub(crate) async fn broadcast_periodically<const N: usize, T>(
     mut chart: Chart<N, T>,
-    period: Duration,
 ) where
     T: Debug + Serialize + DeserializeOwned + Clone,
 {
     loop {
-        chart.interval.sleep_till_next().await;
         trace!("sending discovery msg");
         broadcast(&chart.sock, chart.discovery_port(), &chart.discovery_buf()).await;
+        chart.interval.sleep_till_next().await;
     }
 }
 
