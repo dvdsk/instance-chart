@@ -103,7 +103,7 @@ where
 
     /// Use a true random number from a reliable source of randomness as an [`Id`].
     /// # Note
-    /// I recommend setting the ['Id'] in a deterministic way if possible, it makes debugging a lot
+    /// I recommend setting the [`Id`] in a deterministic way if possible, it makes debugging a lot
     /// easier. Theoretically using this method can fail if multiple instances get the same random
     /// number, the chance of this is unrealistically small.
     ///
